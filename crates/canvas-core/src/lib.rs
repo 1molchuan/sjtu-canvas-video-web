@@ -11,7 +11,8 @@ pub mod error;
 pub mod jaccount;
 pub mod lti;
 pub mod model;
+pub mod redaction;
 pub mod video;
 
-pub use error::{CoreError, CoreErrorCode};
+pub use error::{CoreError, CoreErrorCode, ProtocolError};
 pub use model::{CanvasCourse, CanvasVideo, UserIdentity, VideoTrack};
