@@ -45,6 +45,7 @@ const fn protocol_error_class(error: &ProtocolError) -> &'static str {
         ProtocolError::JAccountWebSocketConnect
         | ProtocolError::JAccountWebSocketClosed
         | ProtocolError::JAccountLoginTimeout
+        | ProtocolError::JAccountQrExpired
         | ProtocolError::JAccountLoginCancelled => "jaccount_websocket_failed",
         ProtocolError::JAccountExpressLoginFailed | ProtocolError::JAccountCookieMissing => {
             "jaccount_express_login_failed"

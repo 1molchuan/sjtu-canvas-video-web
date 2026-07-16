@@ -56,6 +56,21 @@ fn parses_update_login_and_unknown_websocket_events() {
 }
 
 #[test]
+fn parses_expiry_and_rejects_nonzero_upstream_error() {
+    let expired = parse_qr_message(r#"{"type":"QR_CODE_EXPIRED","error":0,"payload":{}}"#)
+        .expect("expiry event should parse");
+    let upstream_error = parse_qr_message(
+        r#"{"type":"UPDATE_QR_CODE","error":17,"payload":{"ts":1,"sig":"secret"}}"#,
+    );
+
+    assert!(matches!(expired, QrEvent::Expired));
+    assert_eq!(
+        upstream_error.expect_err("nonzero error must fail"),
+        ProtocolError::JAccountMessageInvalid
+    );
+}
+
+#[test]
 fn builds_qr_url_without_exposing_secret_through_debug() {
     let base = Url::parse("https://jaccount.sjtu.edu.cn/jaccount/confirmscancode")
         .expect("valid QR base URL");

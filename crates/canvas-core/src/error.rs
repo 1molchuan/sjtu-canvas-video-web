@@ -24,6 +24,8 @@ pub enum ProtocolError {
     JAccountWebSocketClosed,
     #[error("jAccount login timed out")]
     JAccountLoginTimeout,
+    #[error("jAccount QR code expired")]
+    JAccountQrExpired,
     #[error("jAccount login was cancelled")]
     JAccountLoginCancelled,
     #[error("jAccount express login failed")]

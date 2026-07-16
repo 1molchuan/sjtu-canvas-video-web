@@ -18,6 +18,7 @@ static UUID_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 pub enum QrEvent {
     Update(QrCodePayload),
     Login,
+    Expired,
     Unknown { event_type: String },
 }
 
@@ -31,6 +32,8 @@ pub struct QrCodePayload {
 struct WireMessage {
     #[serde(rename = "type")]
     event_type: String,
+    #[serde(default)]
+    error: i64,
     #[serde(default)]
     payload: WirePayload,
 }
@@ -56,9 +59,13 @@ pub fn parse_uuid_from_html(html: &str) -> Result<SecretString, ProtocolError> {
 pub fn parse_qr_message(text: &str) -> Result<QrEvent, ProtocolError> {
     let message: WireMessage =
         serde_json::from_str(text).map_err(|_| ProtocolError::JAccountMessageInvalid)?;
+    if message.error != 0 {
+        return Err(ProtocolError::JAccountMessageInvalid);
+    }
     match message.event_type.to_ascii_uppercase().as_str() {
         "UPDATE_QR_CODE" => parse_update(message.payload),
         "LOGIN" => Ok(QrEvent::Login),
+        "EXPIRED" | "QR_CODE_EXPIRED" => Ok(QrEvent::Expired),
         _ => Ok(QrEvent::Unknown {
             event_type: message.event_type,
         }),
