@@ -1,4 +1,4 @@
-# Phase 1 protocol validation plan
+# Phase 1 protocol validation implementation and evidence
 
 ## Truthful status at the end of Phase 0
 
@@ -16,21 +16,41 @@
 
 No live request has been made with a real account in Phase 0.
 
+## Truthful status after the Phase 1 implementation pass
+
+The protocol client and CLI now exist and the deterministic mock suite is green. No command in this
+repository has been run against a real SJTU account during this implementation pass. A mock result is
+evidence about our state machine and parsers, not evidence that an SJTU endpoint still behaves the same.
+
+| Area | Unit/mock verified | Real SJTU status |
+| --- | --- | --- |
+| UUID HTML parsing | passed | not_run |
+| backend WebSocket, QR update, LOGIN, timeout/cancel | passed | not_run |
+| express login and in-memory `JAAuthCookie` capture | passed | not_run |
+| controlled Canvas SSO and authenticated-page probe | passed | not_run |
+| stable identity probing without display-name fallback | passed | not_run |
+| Cookie-only REST and dashboard course experiments | passed | not_run |
+| external tool, OIDC/LTI forms, redirect and `tokenId` | passed | not_run |
+| course-bound token exchange, list, detail and multi-track parsing | passed | not_run |
+| stateless `bytes=0-0` probe, DNS/IP checks, 200/206/416 | passed | not_run |
+
+Current Go/No-Go: **Undetermined**. Go A, Go B, and No-Go C all require a user-initiated real run.
+
 ## CLI boundary
 
-Phase 1 adds a `protocol-cli` binary that owns one ephemeral upstream client and one cookie jar for its
-entire run. It will never read the desktop helper's config and will never accept a Canvas Personal
-Access Token. Proposed invocation:
+Phase 1 provides a `protocol-cli` binary that owns one ephemeral upstream context and one cookie jar
+for its entire run. It never reads the desktop helper's config and never accepts a Canvas Personal
+Access Token. Real execution is gated by `SJTU_REAL_PROTOCOL_TEST=1`:
 
 ```bash
-cargo run -p protocol-cli -- validate --course-id 12345
+SJTU_REAL_PROTOCOL_TEST=1 cargo run -p protocol-cli -- full --course-id 12345
 ```
 
 `--course-id` is a development-only, manually supplied course the operator already has permission to
 access. It is used only after the course-discovery gate and is never exposed in the production UI.
 
-The CLI displays a QR URL or terminal QR, waits for the operator to scan it, then prints only stage
-names and sanitized outcomes. It does not automate passwords or MFA.
+The CLI renders a terminal QR without printing its signed URL, waits for the operator to scan it,
+then prints only stage names and sanitized outcomes. It does not automate passwords or MFA.
 
 ## Logging contract
 
@@ -39,8 +59,8 @@ Allowed diagnostics:
 - stage name, HTTP status, duration, content type, response byte count;
 - scheme and host, without path/query, for redirect and video-source validation;
 - cookie names and count, never values;
-- stable user ID only after the operator confirms that field is suitable for allowlisting;
-- course/video IDs supplied by or visible to the authenticated user;
+- stable user ID only as a hash or partial redaction suitable for correlation;
+- an explicitly supplied course ID and hashed video IDs;
 - Range capability and sanitized size headers.
 
 Forbidden diagnostics:
@@ -136,19 +156,45 @@ For one short authorized recording track:
 5. Test a valid small range, an unsatisfiable range, and redirect behavior.
 6. Add only observed source and redirect hosts to the candidate allowlist.
 
-## Mock-first implementation plan
+## Mock-first implementation result
 
-Before the live CLI run, add deterministic mock tests for:
+The deterministic suite now covers:
 
 - UUID HTML extraction and missing/ambiguous UUIDs;
-- WebSocket QR update, login, expiry, and disconnect events;
+- WebSocket QR update, login, timeout, cancellation, and missing-cookie failures;
 - express-login cookie capture without exposing values;
 - Canvas redirect allowlisting and Cookie-only course responses;
 - both LTI forms, duplicate fields, relative/invalid actions, token redirect parsing;
 - token exchange, video list/details, token expiry then one refresh;
-- `200`, `206`, `416`, upstream interruption, and Range header parsing.
+- `200`, `206`, `416`, malformed `Content-Range`, rejected redirect, and Range header parsing;
+- one complete mock chain from UUID through Range using one isolated context;
+- two-context Cookie/token isolation and A → B → A token use;
+- CLI argument/gate/report contracts and a production-source sensitive-output scan.
 
 Mocks never become evidence that a real SJTU endpoint works.
+
+## Current real-validation record
+
+Recorded on 2026-07-17. The implementation environment did not perform an interactive scan and did
+not set the real-test gate.
+
+| Step | Status |
+| --- | --- |
+| jAccount UUID | not_run |
+| jAccount WebSocket | not_run |
+| QR | not_run |
+| express login | not_run |
+| Canvas login | not_run |
+| identity | not_run |
+| course discovery | not_run |
+| LTI | not_run |
+| video list | not_run |
+| video detail | not_run |
+| Range probe | not_run |
+
+No stable identity field, real video host, real redirect host, Referer requirement, or live Range
+behavior has been recorded. `.local/protocol-report.json` is generated only by a user-initiated
+`full` run and is ignored by Git.
 
 ## Phase 1 report contract
 
@@ -162,4 +208,3 @@ Update this file after the run with separate sections for:
 - observed stable identity field and rationale, or explicit absence;
 - observed video host(s), Referer behavior, and Range support;
 - known limitations and protocol drift risks.
-

@@ -75,9 +75,32 @@ Redaction is applied before formatting a log event. Debug mode cannot bypass it.
 not require persistent audit storage; if SQLite is later justified, it stores only the allowed minimal
 fields and never authentication state.
 
-## Phase 0 limitations
+## Historical limitations at the end of Phase 0
 
-Only loopback configuration validation and a health route exist. Session, CSRF, headers, rate limits,
-SSRF checks, ticketing, and streaming are design requirements for Phase 3, not completed controls.
-No real upstream behavior has been validated, and the candidate host list in the reference analysis is
-not yet a production allowlist.
+At the Phase 0 baseline, only loopback configuration validation and a health route existed. Session,
+CSRF, headers, rate limits, ticketing, and streaming remain Phase 3 design requirements rather than
+completed controls. Real upstream behavior is still unvalidated, and the candidate host list in the
+reference analysis is not yet a production allowlist.
+
+## Phase 1 implemented controls
+
+- Each CLI run constructs an independent `ProtocolContext`, Cookie Store, redirect-disabled client,
+  and stateless video-content client. No Cookie Store or course token is global.
+- A potentially broad upstream `JAAuthCookie` is removed before host-only copies are installed for
+  jAccount and mySJTU. Mock tests prove it is absent on Canvas and video-content requests.
+- Canvas SSO follows only exact Canvas, jAccount, and mySJTU origins. LTI actions and Locations are
+  exact Video API origins. Range redirects must remain VideoContent origins.
+- Production URL policy requires the secure scheme, exact host, no userinfo, no IP literal, and the
+  standard HTTPS port. Video DNS results are rejected if any result is loopback, private, link-local,
+  multicast, unspecified, carrier-grade NAT, benchmarking, mapped-private IPv4, or reserved.
+- Video list/detail requests use a course-bound `SecretString`; only the explicit 401/403 token-expiry
+  branch performs one LTI relaunch. A second failure is surfaced.
+- Range probes use a Cookie-free client with `Range: bytes=0-0`, `Accept-Encoding: identity`, and the
+  source-derived Referer. They inspect headers without writing or caching the response body.
+- CLI QR output is a terminal matrix, not a textual signed URL. Stable identity and video IDs are
+  hashed in diagnostic output; source paths and queries are replaced by a keyed path hash.
+- Real requests are disabled unless the operator explicitly sets `SJTU_REAL_PROTOCOL_TEST=1`.
+  `.local/protocol-report.json` contains only step states, Go/No-Go, video host, and Range support.
+
+These are protocol-validation controls, not the Phase 3 browser security boundary. There is still no
+browser session, CSRF middleware, ticket endpoint, download proxy, rate limit, or production UI.

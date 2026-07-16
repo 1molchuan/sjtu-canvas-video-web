@@ -6,17 +6,18 @@ the origin must listen only on `127.0.0.1`.
 
 ## Current status
 
-Phase 0 is complete at the source-tree level: the reference implementation has been pinned and
-analyzed, the security boundaries are documented, and a minimal Rust workspace skeleton exists.
-There is intentionally no frontend implementation and no live jAccount/Canvas/LTI implementation yet.
+Phase 1 protocol code and the validation CLI are implemented. The complete protocol chain is covered
+by deterministic local mocks, but no real jAccount scan or SJTU request was performed during this
+implementation pass. There is intentionally still no React frontend, browser session, ticket, or
+download proxy.
 
 | Evidence class | Status |
 | --- | --- |
 | Reference source review | Completed against commit `b5d895a` |
-| Local unit tests | Passed: 4 tests on 2026-07-17 |
+| Local unit and contract tests | Passed on 2026-07-17 |
 | Local runtime health check | Passed with listener ownership confirmed on `127.0.0.1` |
-| Mock protocol integration tests | Not implemented yet |
-| Real local jAccount/Canvas/LTI validation | Not performed |
+| Mock protocol integration tests | Passed, including UUID-to-Range full chain |
+| Real local jAccount/Canvas/LTI validation | not_run |
 | Cookie-only Canvas course discovery | Go/No-Go unresolved |
 | Mac mini / Cloudflare deployment | Not performed |
 
@@ -25,38 +26,56 @@ The reference desktop application uses a manually configured Canvas Personal Acc
 video LTI flow, but its source does not prove that the same Cookie session can list courses. This is
 the first Phase 1 validation gate; the web application will not silently request a Canvas token.
 
-## Phase 0 layout
+## Current layout
 
 ```text
 .
 ├── crates/
-│   ├── canvas-core/       # protocol-domain boundary; no Axum and no live calls yet
+│   ├── canvas-core/       # injectable HTTP/WebSocket/Canvas/LTI/video protocol core; no Axum
+│   ├── protocol-cli/      # explicitly gated interactive Phase 1 validator
 │   └── server/            # loopback-only config validation and /api/health
 ├── config/example.toml
 ├── docs/
 │   ├── reference-analysis.md
 │   ├── protocol-validation.md
+│   ├── phase-1-runbook.md
 │   └── security-model.md
 ├── frontend/              # Phase 4 boundary only
 ├── deploy/                # Phase 5 boundary only
 ├── research_sjtu_canvas_helper/
 │   └── research_plan.md   # reproducible Phase 0 research plan
-└── tests/                 # future mock cross-crate integration tests
+└── tests/                 # reserved for later repository-wide integration tests
 ```
 
 The shallow reference clone under `research_sjtu_canvas_helper/SJTU-Canvas-Helper/` is ignored by
 Git. The permanent evidence and attribution live in `docs/` and `THIRD_PARTY_NOTICES.md`.
 
-## Build and run the Phase 0 skeleton
+## Build, mock-test, and run the validator
 
 Requirements: rustup with the toolchain pinned by `rust-toolchain.toml`. No SJTU credentials are
-needed for Phase 0 tests.
+needed for automated tests.
 
 ```bash
 cargo fmt --check
-cargo check --workspace
-cargo test --workspace
+cargo check --workspace --all-targets
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets
+cargo test -p canvas-core --test full_mock_protocol
 ```
+
+Real protocol commands are disabled unless the operator explicitly sets
+`SJTU_REAL_PROTOCOL_TEST=1`. The course ID must come from a Canvas course URL that the operator can
+already open; the CLI never enumerates IDs:
+
+```bash
+export SJTU_REAL_PROTOCOL_TEST=1
+cargo run -p protocol-cli -- login
+cargo run -p protocol-cli -- discover-courses
+cargo run -p protocol-cli -- full --course-id 12345
+```
+
+`full` writes only a sanitized `.local/protocol-report.json`, which is ignored by Git. See the
+[Phase 1 runbook](docs/phase-1-runbook.md) before any real scan.
 
 Run the health-only server on macOS/Linux:
 
@@ -75,11 +94,8 @@ cargo run -p server
 The example allowlist contains a non-user placeholder. Phase 1 must identify and document a stable
 jAccount identifier before any real user can be allowed.
 
-Phase 0 was verified with Rust `1.97.1`: `cargo fmt --check`, `cargo check --workspace --all-targets`,
-`cargo clippy --workspace --all-targets --all-features -- -D warnings`, and
-`cargo test --workspace --all-targets` all returned success. The runtime health check used an
-unoccupied temporary loopback port and confirmed that the listener belonged to the started server
-process.
+The current workspace is verified with Rust `1.97.1`. Mock success is not recorded as real endpoint
+success; all real steps remain `not_run` in [the validation record](docs/protocol-validation.md).
 
 ## Security posture
 

@@ -170,6 +170,23 @@ The new download path differs deliberately:
 | `live.sjtu.edu.cn/vod/...` | inferred recording source host | Unverified |
 | Referer `https://courses.sjtu.edu.cn` | source download requirement | Unverified |
 
+## Phase 1 extraction boundary
+
+Phase 1 reimplemented only the required protocol surface. It did not copy the Tauri command layer,
+desktop persistence, global token lock, shared Cookie Jar, download workers, subtitles, PPT, file,
+assignment, or UI code.
+
+The extracted implementation is split across `canvas-core::jaccount`, `canvas-core::canvas`,
+`canvas-core::lti`, and `canvas-core::video`. Every `ProtocolContext` builds a fresh in-memory Cookie
+Store. LTI form fields remain an ordered vector so duplicate names survive encoding, redirects are
+validated before following, and `tokenId`, course tokens, and track URLs use secret wrappers.
+
+The reference values `external_tools/8329`, the `v.sjtu.edu.cn` API paths,
+`live.sjtu.edu.cn`, and Referer `https://courses.sjtu.edu.cn` are still **source-derived candidates**.
+Mock coverage confirms our implementation uses them consistently; it does not prove they remain live
+or complete. A real run may reveal protocol drift or additional CDN hosts, which must be reviewed and
+added explicitly rather than accepted by suffix matching.
+
 No allowlist should be finalized solely from this table. Phase 1 records actual redirect and video
 hosts without logging paths, query strings, tokens, or personal data.
 
@@ -182,4 +199,3 @@ PPT, AI, JBox, ffmpeg, Canvas assignments, MCP, and desktop configuration are no
 The new code is independently structured for multi-user Web security. Because protocol work is
 derived from the MIT project and future phases may adapt small implementation portions, the original
 copyright and complete MIT text are retained in `THIRD_PARTY_NOTICES.md`.
-
