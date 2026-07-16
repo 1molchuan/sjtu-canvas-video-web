@@ -16,6 +16,12 @@ pub struct ProtocolEndpoints {
     pub canvas_self: Url,
     pub canvas_courses: Url,
     pub canvas_dashboard: Url,
+    pub oidc_login: Url,
+    pub lti_auth: Url,
+    pub token_exchange: Url,
+    pub video_list: Url,
+    pub video_detail: Url,
+    pub video_ui_referer: Url,
 }
 
 #[derive(Debug, Clone)]
@@ -64,6 +70,22 @@ impl ProtocolEndpoints {
             canvas_self: static_url("https://oc.sjtu.edu.cn/api/v1/users/self"),
             canvas_courses: static_url("https://oc.sjtu.edu.cn/api/v1/courses"),
             canvas_dashboard: static_url("https://oc.sjtu.edu.cn/"),
+            oidc_login: static_url(
+                "https://v.sjtu.edu.cn/jy-application-canvas-sjtu/oidc/login_initiations",
+            ),
+            lti_auth: static_url(
+                "https://v.sjtu.edu.cn/jy-application-canvas-sjtu/lti3/lti3Auth/ivs",
+            ),
+            token_exchange: static_url(
+                "https://v.sjtu.edu.cn/jy-application-canvas-sjtu/lti3/getAccessTokenByTokenId",
+            ),
+            video_list: static_url(
+                "https://v.sjtu.edu.cn/jy-application-canvas-sjtu/directOnDemandPlay/findVodVideoList",
+            ),
+            video_detail: static_url(
+                "https://v.sjtu.edu.cn/jy-application-canvas-sjtu/directOnDemandPlay/getVodVideoInfos",
+            ),
+            video_ui_referer: static_url("https://v.sjtu.edu.cn/jy-application-canvas-sjtu-ui/"),
         }
     }
 
@@ -92,6 +114,18 @@ impl ProtocolEndpoints {
             canvas_self: join(&origins.canvas, "canvas/api/self"),
             canvas_courses: join(&origins.canvas, "canvas/api/courses"),
             canvas_dashboard: join(&origins.canvas, "canvas/dashboard"),
+            oidc_login: join(&origins.video_api, "video/oidc/login_initiations"),
+            lti_auth: join(&origins.video_api, "video/lti3/lti3Auth/ivs"),
+            token_exchange: join(&origins.video_api, "video/lti3/getAccessTokenByTokenId"),
+            video_list: join(
+                &origins.video_api,
+                "video/directOnDemandPlay/findVodVideoList",
+            ),
+            video_detail: join(
+                &origins.video_api,
+                "video/directOnDemandPlay/getVodVideoInfos",
+            ),
+            video_ui_referer: join(&origins.video_api, "video-ui/"),
         }
     }
 }

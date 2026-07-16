@@ -1,4 +1,3 @@
-use serde::Serialize;
 use thiserror::Error;
 
 use crate::client::UpstreamPurpose;
@@ -51,41 +50,47 @@ pub enum ProtocolError {
     CanvasCourseDiscoveryRejected,
     #[error("Canvas course discovery response is unsupported")]
     CanvasCourseDiscoveryUnsupported,
+    #[error("Canvas external tool page request failed")]
+    ExternalToolPageFailed,
+    #[error("OIDC initiation form is missing")]
+    OidcFormMissing,
+    #[error("OIDC initiation form action is invalid")]
+    OidcActionInvalid,
+    #[error("LTI authorization form is missing")]
+    LtiFormMissing,
+    #[error("LTI authorization form action is invalid")]
+    LtiActionInvalid,
+    #[error("LTI launch failed")]
+    LtiLaunchFailed,
+    #[error("LTI redirect is missing")]
+    LtiRedirectMissing,
+    #[error("LTI redirect is invalid")]
+    LtiRedirectInvalid,
+    #[error("LTI tokenId is missing, empty, or ambiguous")]
+    TokenIdMissing,
+    #[error("video token exchange failed")]
+    VideoTokenExchangeFailed,
+    #[error("video-system course ID is missing")]
+    VideoCourseIdMissing,
+    #[error("upstream protocol response changed")]
+    UpstreamChanged,
+    #[error("video course token has expired")]
+    VideoTokenExpired,
+    #[error("video list request failed")]
+    VideoListFailed,
+    #[error("video detail request failed")]
+    VideoDetailFailed,
+    #[error("video detail contains no usable track")]
+    VideoTrackMissing,
+    #[error("video Range probe failed")]
+    RangeProbeFailed,
+    #[error("video upstream rejected or changed Range semantics")]
+    UpstreamRangeRejected,
+    #[error("resolved upstream host is not allowed")]
+    InvalidUpstreamHost,
     #[error("upstream URL rejected for {purpose:?}: {reason}")]
     InvalidUpstreamUrl {
         purpose: UpstreamPurpose,
         reason: &'static str,
     },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum CoreErrorCode {
-    JAccountUnavailable,
-    JAccountLoginFailed,
-    CanvasLoginFailed,
-    CanvasCourseDiscoveryUnavailable,
-    CourseAccessDenied,
-    LtiLaunchFailed,
-    VideoTokenFailed,
-    VideoListFailed,
-    VideoInfoFailed,
-    InvalidUpstreamHost,
-    UpstreamUnavailable,
-}
-
-#[derive(Debug, Error)]
-#[error("{code:?}: {message}")]
-pub struct CoreError {
-    pub code: CoreErrorCode,
-    pub message: String,
-}
-
-impl CoreError {
-    pub fn new(code: CoreErrorCode, message: impl Into<String>) -> Self {
-        Self {
-            code,
-            message: message.into(),
-        }
-    }
 }

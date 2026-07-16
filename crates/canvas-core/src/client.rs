@@ -4,7 +4,7 @@ mod body;
 mod config;
 mod policy;
 
-use std::sync::Arc;
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
 use reqwest::redirect::Policy;
 use reqwest_cookie_store::CookieStoreMutex;
@@ -25,9 +25,11 @@ const USER_AGENT: &str = "SJTU-Canvas-Video-Web-Protocol-Validation/0.1";
 pub struct ProtocolContext {
     pub client: reqwest::Client,
     pub no_redirect_client: reqwest::Client,
+    pub stateless_client: reqwest::Client,
     pub cookie_store: Arc<CookieStoreMutex>,
     pub endpoints: ProtocolEndpoints,
     pub policy: UpstreamPolicy,
+    dns_overrides: Arc<HashMap<String, SocketAddr>>,
 }
 
 pub(crate) struct HostCookie<'a> {
@@ -45,12 +47,20 @@ impl ProtocolContext {
             follow_redirects(&config.policy),
         )?;
         let no_redirect_client = build_client(&config, cookie_store.clone(), Policy::none())?;
+        let stateless_client = build_stateless_client(&config, Policy::none())?;
+        let dns_overrides = config
+            .dns_overrides
+            .iter()
+            .map(|entry| (entry.host.clone(), entry.address))
+            .collect();
         Ok(Self {
             client,
             no_redirect_client,
+            stateless_client,
             cookie_store,
             endpoints: config.endpoints,
             policy: config.policy,
+            dns_overrides: Arc::new(dns_overrides),
         })
     }
 
@@ -119,6 +129,10 @@ impl ProtocolContext {
         }
         Ok(())
     }
+
+    pub(crate) fn dns_override(&self, host: &str) -> Option<SocketAddr> {
+        self.dns_overrides.get(host).copied()
+    }
 }
 
 fn build_client(
@@ -126,17 +140,30 @@ fn build_client(
     cookie_store: Arc<CookieStoreMutex>,
     redirect_policy: Policy,
 ) -> Result<reqwest::Client, ProtocolError> {
+    configured_builder(config, redirect_policy)
+        .cookie_provider(cookie_store)
+        .build()
+        .map_err(|_| ProtocolError::HttpClientBuildFailed)
+}
+
+fn build_stateless_client(
+    config: &ProtocolConfig,
+    redirect_policy: Policy,
+) -> Result<reqwest::Client, ProtocolError> {
+    configured_builder(config, redirect_policy)
+        .build()
+        .map_err(|_| ProtocolError::HttpClientBuildFailed)
+}
+
+fn configured_builder(config: &ProtocolConfig, redirect_policy: Policy) -> reqwest::ClientBuilder {
     let mut builder = reqwest::Client::builder()
         .user_agent(USER_AGENT)
         .connect_timeout(config.connect_timeout)
         .timeout(config.request_timeout)
-        .cookie_provider(cookie_store)
         .redirect(redirect_policy)
         .no_proxy();
     for dns in &config.dns_overrides {
         builder = builder.resolve(&dns.host, dns.address);
     }
     builder
-        .build()
-        .map_err(|_| ProtocolError::HttpClientBuildFailed)
 }

@@ -19,6 +19,9 @@ const VIDEO_CONTENT_HOST: &str = "content.sjtu.mock.test";
 pub struct MockTopology {
     pub config: ProtocolConfig,
     pub canvas_host: &'static str,
+    pub canvas_origin: Url,
+    pub video_api_origin: Url,
+    pub video_content_origin: Url,
 }
 
 impl MockTopology {
@@ -41,11 +44,17 @@ impl MockTopology {
         .into_iter()
         .map(|host| DnsOverride::new(host, address))
         .collect();
+        let canvas_origin = origins.canvas.clone();
+        let video_api_origin = origins.video_api.clone();
+        let video_content_origin = origins.video_content.clone();
         let config = ProtocolConfig::mock_with_origins(origins, Duration::from_secs(2))
             .with_dns_overrides(overrides);
         Self {
             config,
             canvas_host: CANVAS_HOST,
+            canvas_origin,
+            video_api_origin,
+            video_content_origin,
         }
     }
 }
