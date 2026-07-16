@@ -1,0 +1,16 @@
+[server]
+host = "127.0.0.1"
+port = 3000
+session_ttl_hours = 8
+pending_login_ttl_minutes = 5
+download_ticket_ttl_seconds = 60
+max_global_downloads = 4
+max_downloads_per_user = 1
+max_pending_logins = 20
+api_timeout_seconds = 30
+upstream_connect_timeout_seconds = 10
+
+[auth]
+# Replace with stable identifiers observed and documented during Phase 1.
+allowed_users = ["replace-with-stable-jaccount-id"]
+
