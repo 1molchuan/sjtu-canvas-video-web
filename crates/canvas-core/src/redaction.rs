@@ -59,3 +59,13 @@ impl fmt::Display for SanitizedUrl {
         )
     }
 }
+
+impl SanitizedUrl {
+    pub fn host(&self) -> &str {
+        &self.host
+    }
+
+    pub fn query_present(&self) -> bool {
+        self.query_present
+    }
+}

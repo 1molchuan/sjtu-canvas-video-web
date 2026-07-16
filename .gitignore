@@ -1,4 +1,5 @@
 /target/
+/.local/
 /.env
 /config/local.toml
 /research_sjtu_canvas_helper/SJTU-Canvas-Helper/
@@ -6,4 +7,3 @@
 /frontend/dist/
 *.log
 .DS_Store
-

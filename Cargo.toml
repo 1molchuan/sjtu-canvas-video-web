@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/canvas-core", "crates/server"]
+members = ["crates/canvas-core", "crates/protocol-cli", "crates/server"]
 resolver = "2"
 
 [workspace.package]

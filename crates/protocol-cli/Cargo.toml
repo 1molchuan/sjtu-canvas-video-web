@@ -1,0 +1,25 @@
+[package]
+name = "protocol-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+canvas-core = { path = "../canvas-core" }
+clap.workspace = true
+qrcode.workspace = true
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+url.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

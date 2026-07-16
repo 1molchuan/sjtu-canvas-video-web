@@ -1,4 +1,10 @@
-use secrecy::SecretString;
+use secrecy::{ExposeSecret, SecretString};
+use url::Url;
+
+use crate::{
+    error::ProtocolError,
+    redaction::{Redactor, SanitizedUrl},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CanvasVideo {
@@ -46,5 +52,11 @@ impl VideoTrack {
             suggested_filename: input.suggested_filename,
             upstream_url: input.upstream_url,
         }
+    }
+
+    pub fn sanitized_upstream(&self, redactor: &Redactor) -> Result<SanitizedUrl, ProtocolError> {
+        let url = Url::parse(self.upstream_url.expose_secret())
+            .map_err(|_| ProtocolError::RangeProbeFailed)?;
+        Ok(redactor.sanitize_url(&url))
     }
 }
