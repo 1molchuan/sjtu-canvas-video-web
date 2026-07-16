@@ -15,6 +15,7 @@ pub const CANVAS_COURSE_ID: i64 = 777;
 pub const VIDEO_COURSE_ID: &str = "video-course-42";
 pub const TOKEN_ID: &str = "token-id-secret-canary";
 pub const VIDEO_TOKEN: &str = "video-token-secret-canary";
+pub const VIDEO_TOKEN_B: &str = "video-token-b-secret-canary";
 
 #[derive(Default)]
 pub struct FlowState {
@@ -22,6 +23,7 @@ pub struct FlowState {
     pub always_stale: AtomicBool,
     pub malicious_redirect: AtomicBool,
     pub missing_token_data: AtomicBool,
+    pub alternate_token: AtomicBool,
     pub lti_launches: AtomicUsize,
     pub token_exchanges: AtomicUsize,
     pub list_calls: AtomicUsize,
@@ -114,6 +116,8 @@ async fn exchange(
         || (state.stale_first_token.load(Ordering::SeqCst) && call == 0);
     let token = if stale {
         "stale-video-token"
+    } else if state.alternate_token.load(Ordering::SeqCst) {
+        VIDEO_TOKEN_B
     } else {
         VIDEO_TOKEN
     };
@@ -133,7 +137,12 @@ async fn video_list(
     if token == Some("stale-video-token") {
         return StatusCode::UNAUTHORIZED.into_response();
     }
-    assert_eq!(token, Some(VIDEO_TOKEN));
+    let expected = if state.alternate_token.load(Ordering::SeqCst) {
+        VIDEO_TOKEN_B
+    } else {
+        VIDEO_TOKEN
+    };
+    assert_eq!(token, Some(expected));
     assert!(headers.contains_key("referer"));
     (
         [("content-type", "application/json")],

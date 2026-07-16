@@ -27,8 +27,17 @@ pub struct MockTopology {
 impl MockTopology {
     pub fn for_server(server: &MockServer) -> Self {
         let address = mock_address(server);
+        Self::build(server, origin(JACCOUNT_HOST, address.port()))
+    }
+
+    pub fn with_socket_jaccount(server: &MockServer) -> Self {
+        Self::build(server, server.origin())
+    }
+
+    fn build(server: &MockServer, jaccount: Url) -> Self {
+        let address = mock_address(server);
         let origins = ProtocolOrigins {
-            jaccount: origin(JACCOUNT_HOST, address.port()),
+            jaccount,
             my_sjtu: origin(MY_SJTU_HOST, address.port()),
             canvas: origin(CANVAS_HOST, address.port()),
             video_api: origin(VIDEO_API_HOST, address.port()),

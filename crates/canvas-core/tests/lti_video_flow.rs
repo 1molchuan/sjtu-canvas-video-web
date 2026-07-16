@@ -15,7 +15,9 @@ use canvas_core::{
 };
 use secrecy::ExposeSecret;
 
-use lti_fixture::{CANVAS_COURSE_ID, FlowState, VIDEO_COURSE_ID, VIDEO_TOKEN, router};
+use lti_fixture::{
+    CANVAS_COURSE_ID, FlowState, VIDEO_COURSE_ID, VIDEO_TOKEN, VIDEO_TOKEN_B, router,
+};
 use support::{MockServer, topology::MockTopology};
 
 #[tokio::test]
@@ -113,4 +115,34 @@ async fn token_exchange_missing_data_is_not_reported_as_success() {
         .expect_err("missing token fields must fail");
 
     assert_eq!(error, ProtocolError::VideoTokenExchangeFailed);
+}
+
+#[tokio::test]
+async fn two_contexts_keep_cookie_stores_and_course_tokens_isolated() {
+    let state_a = Arc::new(FlowState::default());
+    let state_b = Arc::new(FlowState::default());
+    state_b.alternate_token.store(true, Ordering::SeqCst);
+    let server_a = MockServer::spawn(router(state_a)).await;
+    let server_b = MockServer::spawn(router(state_b)).await;
+    let context_a = ProtocolContext::new(MockTopology::for_server(&server_a).config)
+        .expect("context A should build");
+    let context_b = ProtocolContext::new(MockTopology::for_server(&server_b).config)
+        .expect("context B should build");
+
+    let auth_a = establish_course_video_session(&context_a, CANVAS_COURSE_ID)
+        .await
+        .expect("context A LTI should succeed");
+    let auth_b = establish_course_video_session(&context_b, CANVAS_COURSE_ID)
+        .await
+        .expect("context B LTI should succeed");
+
+    assert_eq!(auth_a.token.expose_secret(), VIDEO_TOKEN);
+    assert_eq!(auth_b.token.expose_secret(), VIDEO_TOKEN_B);
+    assert!(!Arc::ptr_eq(
+        &context_a.cookie_store,
+        &context_b.cookie_store
+    ));
+    assert!(list_course_videos(&context_a, &auth_a).await.is_ok());
+    assert!(list_course_videos(&context_b, &auth_b).await.is_ok());
+    assert!(list_course_videos(&context_a, &auth_a).await.is_ok());
 }
