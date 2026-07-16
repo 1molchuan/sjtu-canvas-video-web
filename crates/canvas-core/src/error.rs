@@ -7,8 +7,14 @@ use crate::client::UpstreamPurpose;
 pub enum ProtocolError {
     #[error("HTTP client construction failed")]
     HttpClientBuildFailed,
+    #[error("upstream response body could not be read")]
+    UpstreamBodyReadFailed,
+    #[error("upstream response exceeded the configured limit")]
+    UpstreamResponseTooLarge,
     #[error("in-memory Cookie Store is unavailable")]
     CookieStoreUnavailable,
+    #[error("host-scoped Cookie could not be inserted")]
+    CookieInsertFailed,
     #[error("jAccount UUID is unavailable or ambiguous")]
     JAccountUuidUnavailable,
     #[error("jAccount UUID request failed")]
@@ -29,6 +35,22 @@ pub enum ProtocolError {
     JAccountMessageInvalid,
     #[error("jAccount QR update payload is incomplete")]
     JAccountQrPayloadMissing,
+    #[error("stable user identity is unavailable")]
+    IdentityUnavailable,
+    #[error("Canvas login failed")]
+    CanvasLoginFailed,
+    #[error("Canvas login returned to the identity provider")]
+    CanvasRedirectedToLogin,
+    #[error("Canvas login redirect is missing")]
+    CanvasRedirectMissing,
+    #[error("Canvas login exceeded the redirect limit")]
+    CanvasRedirectLimitExceeded,
+    #[error("Canvas Session Cookie is missing")]
+    CanvasSessionCookieMissing,
+    #[error("Canvas course discovery request was rejected")]
+    CanvasCourseDiscoveryRejected,
+    #[error("Canvas course discovery response is unsupported")]
+    CanvasCourseDiscoveryUnsupported,
     #[error("upstream URL rejected for {purpose:?}: {reason}")]
     InvalidUpstreamUrl {
         purpose: UpstreamPurpose,

@@ -4,6 +4,8 @@ use axum::Router;
 use tokio::{net::TcpListener, task::JoinHandle};
 use url::Url;
 
+pub mod topology;
+
 pub struct MockServer {
     origin: Url,
     task: JoinHandle<()>,

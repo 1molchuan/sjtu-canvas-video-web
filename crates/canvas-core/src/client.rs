@@ -1,46 +1,25 @@
 //! Per-run protocol clients and isolated in-memory Cookie Stores.
 
+mod body;
+mod config;
 mod policy;
 
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use reqwest::redirect::Policy;
 use reqwest_cookie_store::CookieStoreMutex;
-use secrecy::SecretString;
+use secrecy::{ExposeSecret, SecretString};
 use url::Url;
 
 use crate::error::ProtocolError;
 
+pub use body::read_limited_body;
+pub use config::{DnsOverride, ProtocolConfig, ProtocolEndpoints, ProtocolOrigins};
 pub use policy::{UpstreamPolicy, UpstreamPurpose, validate_upstream_url};
 
 use policy::follow_redirects;
 
 const USER_AGENT: &str = "SJTU-Canvas-Video-Web-Protocol-Validation/0.1";
-
-#[derive(Debug, Clone)]
-pub struct ProtocolEndpoints {
-    pub my_info: Url,
-    pub express_login: Url,
-    pub websocket_base: Url,
-    pub qr_confirm: Url,
-}
-
-#[derive(Debug, Clone)]
-pub struct ProtocolOrigins {
-    pub jaccount: Url,
-    pub my_sjtu: Url,
-    pub canvas: Url,
-    pub video_api: Url,
-    pub video_content: Url,
-}
-
-#[derive(Debug, Clone)]
-pub struct ProtocolConfig {
-    pub endpoints: ProtocolEndpoints,
-    pub policy: UpstreamPolicy,
-    pub request_timeout: Duration,
-    pub connect_timeout: Duration,
-}
 
 #[derive(Clone)]
 pub struct ProtocolContext {
@@ -51,93 +30,10 @@ pub struct ProtocolContext {
     pub policy: UpstreamPolicy,
 }
 
-impl ProtocolEndpoints {
-    pub fn production() -> Self {
-        Self {
-            my_info: static_url("https://my.sjtu.edu.cn/ui/appmyinfo"),
-            express_login: static_url("https://jaccount.sjtu.edu.cn/jaccount/expresslogin"),
-            websocket_base: static_url("wss://jaccount.sjtu.edu.cn/jaccount/sub/"),
-            qr_confirm: static_url("https://jaccount.sjtu.edu.cn/jaccount/confirmscancode"),
-        }
-    }
-
-    fn mock(origins: &ProtocolOrigins) -> Self {
-        let mut websocket_base = origins
-            .jaccount
-            .join("ja/ws/")
-            .expect("mock WebSocket path is valid");
-        websocket_base
-            .set_scheme("ws")
-            .expect("HTTP mock origin can become WebSocket origin");
-        Self {
-            my_info: origins.my_sjtu.join("my/info").expect("mock path is valid"),
-            express_login: origins
-                .jaccount
-                .join("ja/express")
-                .expect("mock path is valid"),
-            websocket_base,
-            qr_confirm: origins.jaccount.join("ja/qr").expect("mock path is valid"),
-        }
-    }
-
-    pub fn jaccount_origin(&self) -> Url {
-        origin_of(&self.express_login)
-    }
-}
-
-impl ProtocolOrigins {
-    pub fn for_mock(jaccount: Url, my_sjtu: Url) -> Self {
-        Self {
-            canvas: jaccount.clone(),
-            video_api: jaccount.clone(),
-            video_content: jaccount.clone(),
-            jaccount,
-            my_sjtu,
-        }
-    }
-
-    fn single(origin: Url) -> Self {
-        Self::for_mock(origin.clone(), origin)
-    }
-
-    fn policy_entries(&self, websocket: &Url) -> Vec<(UpstreamPurpose, Url)> {
-        vec![
-            (UpstreamPurpose::JAccount, self.jaccount.clone()),
-            (UpstreamPurpose::JAccount, websocket.clone()),
-            (UpstreamPurpose::MySjtu, self.my_sjtu.clone()),
-            (UpstreamPurpose::Canvas, self.canvas.clone()),
-            (UpstreamPurpose::VideoApi, self.video_api.clone()),
-            (UpstreamPurpose::VideoContent, self.video_content.clone()),
-        ]
-    }
-}
-
-impl ProtocolConfig {
-    pub fn production(timeout: Duration) -> Self {
-        Self {
-            endpoints: ProtocolEndpoints::production(),
-            policy: UpstreamPolicy::production(),
-            request_timeout: timeout,
-            connect_timeout: timeout,
-        }
-    }
-
-    pub fn mock(origin: Url, timeout: Duration) -> Self {
-        Self::mock_with_origins(ProtocolOrigins::single(origin), timeout)
-    }
-
-    pub fn mock_with_origins(origins: ProtocolOrigins, timeout: Duration) -> Self {
-        let endpoints = ProtocolEndpoints::mock(&origins);
-        Self {
-            policy: UpstreamPolicy::from_urls(
-                origins.policy_entries(&endpoints.websocket_base),
-                false,
-            ),
-            endpoints,
-            request_timeout: timeout,
-            connect_timeout: timeout,
-        }
-    }
+pub(crate) struct HostCookie<'a> {
+    pub name: &'static str,
+    pub value: &'a SecretString,
+    pub target: &'a Url,
 }
 
 impl ProtocolContext {
@@ -183,6 +79,46 @@ impl ProtocolContext {
             .find(|(name, _)| *name == expected_name)
             .map(|(_, value)| SecretString::from(value.to_owned())))
     }
+
+    pub(crate) fn insert_host_cookie(&self, cookie: HostCookie<'_>) -> Result<(), ProtocolError> {
+        let secure = if cookie.target.scheme() == "https" {
+            "; Secure"
+        } else {
+            ""
+        };
+        let raw = format!(
+            "{}={}; Path=/; HttpOnly{secure}",
+            cookie.name,
+            cookie.value.expose_secret()
+        );
+        let mut store = self
+            .cookie_store
+            .lock()
+            .map_err(|_| ProtocolError::CookieStoreUnavailable)?;
+        store
+            .parse(&raw, cookie.target)
+            .map(|_| ())
+            .map_err(|_| ProtocolError::CookieInsertFailed)
+    }
+
+    pub(crate) fn remove_cookies_named(&self, name: &str) -> Result<(), ProtocolError> {
+        let mut store = self
+            .cookie_store
+            .lock()
+            .map_err(|_| ProtocolError::CookieStoreUnavailable)?;
+        let keys = store
+            .iter_any()
+            .filter(|cookie| cookie.name() == name)
+            .filter_map(|cookie| {
+                let domain = cookie.domain.as_cow()?.into_owned();
+                Some((domain, cookie.path.to_string()))
+            })
+            .collect::<Vec<_>>();
+        for (domain, path) in keys {
+            store.remove(&domain, &path, name);
+        }
+        Ok(())
+    }
 }
 
 fn build_client(
@@ -190,24 +126,17 @@ fn build_client(
     cookie_store: Arc<CookieStoreMutex>,
     redirect_policy: Policy,
 ) -> Result<reqwest::Client, ProtocolError> {
-    reqwest::Client::builder()
+    let mut builder = reqwest::Client::builder()
         .user_agent(USER_AGENT)
         .connect_timeout(config.connect_timeout)
         .timeout(config.request_timeout)
         .cookie_provider(cookie_store)
         .redirect(redirect_policy)
+        .no_proxy();
+    for dns in &config.dns_overrides {
+        builder = builder.resolve(&dns.host, dns.address);
+    }
+    builder
         .build()
         .map_err(|_| ProtocolError::HttpClientBuildFailed)
-}
-
-fn static_url(value: &str) -> Url {
-    Url::parse(value).expect("static protocol URL must be valid")
-}
-
-fn origin_of(url: &Url) -> Url {
-    let mut origin = url.clone();
-    origin.set_path("/");
-    origin.set_query(None);
-    origin.set_fragment(None);
-    origin
 }
