@@ -165,3 +165,20 @@ revalidation of every redirect constrain this risk but do not eliminate it crypt
 The Phase 1.5 real evidence covers one account, one authorized course, and one selected track. Phase 2
 Mock tests cover multi-session isolation and adverse Web branches. Real Phase 2 browser/API acceptance
 is recorded separately and must not be inferred from Mock results.
+
+## Phase 2 real Web security evidence
+
+On 2026-07-17, the user completed a separate explicitly gated Web run against a listener confirmed as
+`127.0.0.1`. The browser-equivalent client retained both pending and website cookies only in memory. It
+verified pending-bound SSE, allowlist acceptance, rotated Session creation, CSRF ticket issue, opaque
+resource handles, ticketed HEAD/Range, response header filtering, cancellation permit release, logout,
+and immediate old-ticket rejection.
+
+The source returned `206` with one byte for `bytes=0-0`. A second bounded request was cancelled after
+2920 bytes; an immediate one-byte request succeeded, and no video artifact appeared in the workspace.
+The real response contained no upstream `Set-Cookie`.
+
+Log canary checks found no actual QR, pending, CSRF, ticket, course/video/track handle, URL, Cookie, or
+authorization value. They did find the public endpoint template name `getAccessTokenByTokenId`. Although
+no value was present, Phase 2 replaced that log-only label with `<video-api-token-exchange>` and added a
+regression test so the sensitive parameter name no longer appears in future logs.

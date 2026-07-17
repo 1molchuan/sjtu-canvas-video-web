@@ -143,3 +143,42 @@ Stop the process with Ctrl+C and wait for graceful shutdown. Remove any ad-hoc b
 the private local configuration when no longer needed. Authentication state needs no disk cleanup:
 cookies, course tokens, source resources, sessions, and tickets live only in memory and are destroyed on
 shutdown.
+
+## Real Web acceptance record — 2026-07-17
+
+Environment: Windows, Rust 1.97.1, explicit real-protocol gate enabled, loopback listener at
+`127.0.0.1:3100`, local HTTP cookie exception enabled, and the user personally completed QR scans. The
+course was selected only from the Cookie-discovered authorized course handles; no raw course ID was
+submitted to the Web API.
+
+| Check | Result |
+| --- | --- |
+| QR start and SSE QR | passed |
+| User scan, whitelist, authenticated SSE | passed |
+| Website Session claim and CSRF | passed |
+| Local Cookie attributes (`HttpOnly`, `SameSite=Lax`, `Path=/`) | passed |
+| Cookie-only courses endpoint | passed |
+| Authorized course video endpoint | passed |
+| Video detail and two track handles | passed |
+| Session/CSRF-bound ticket issue | passed |
+| HEAD with no body | passed |
+| `Range: bytes=0-0`, status `206`, one byte | passed |
+| `Content-Range`, `Accept-Ranges`, content type | passed |
+| Upstream `Set-Cookie` absent from browser response | passed |
+| Cancel after 2920 bytes and immediate next `206` | passed |
+| Logout, unauthenticated Session, old ticket rejected | passed |
+| Loopback-only listener | passed |
+| Video artifact and tracked-private-file scan | passed |
+
+The first authorized course tried by the smoke client returned an explicit `502 UPSTREAM_UNAVAILABLE`;
+the next authorized course returned 33 videos. This is recorded as correct error exposure, not an empty
+success. The selected video returned two downloadable tracks, both currently classified as `unknown`.
+
+Actual QR, pending, CSRF, ticket, course/video/track handle values were absent from the server logs. A
+lexical scan found only the fixed endpoint template name containing the text `TokenId`, not a value.
+The logging template was changed to `<video-api-token-exchange>` and a regression test now forbids that
+parameter name. The functional real flow was completed before this log-label-only change; the change is
+automatically tested and does not alter any request URL.
+
+No complete video was downloaded, no video file was written, `config/local.toml` and `.local/` remained
+Git-ignored, and neither local file was committed.

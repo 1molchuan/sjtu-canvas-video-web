@@ -229,3 +229,25 @@ Web integration tests cover pending/SSE binding, whitelist enforcement, session 
 CSRF/Origin checks, ticket lifetime, Range streaming, cancellation, header filtering, and safe logs using
 Mock upstreams only. Real Phase 2 browser/API acceptance is a distinct evidence class and must not be
 reported as passed solely because the Phase 1.5 CLI chain passed.
+
+## Phase 2 real Web evidence
+
+A separate explicitly gated Windows run on 2026-07-17 used the user's own allowlisted identity and only
+Cookie-discovered authorized course handles. QR start, SSE QR, scan login, whitelist, website Session,
+course discovery, video list, video detail, two tracks, ticket issue, HEAD, one-byte Range `206`, bounded
+request cancellation, permit release, logout, and old-ticket rejection all passed.
+
+The run selected the first authorized handle that returned a non-empty video catalog. One preceding
+authorized course surfaced `502 UPSTREAM_UNAVAILABLE`; it was not converted to an empty list. The chosen
+course returned 33 videos and the selected video returned two tracks. Counts are retained as structural
+evidence; no course/video name, real ID, handle, URL, Cookie, CSRF token, or ticket is retained.
+
+The one-byte request returned `Content-Range`, `Accept-Ranges`, and content type without upstream
+`Set-Cookie`. A bounded Range was cancelled after 2920 bytes and a subsequent one-byte Range immediately
+returned `206`, providing real evidence that cancellation releases the download permit. Logout returned
+`204`, the Session endpoint became unauthenticated, and the old ticket returned `401`.
+
+This evidence remains limited to one user and one successful course/video/track. Track kinds in the
+observed detail response currently map to `unknown`. The Web run used the documented loopback HTTP cookie
+exception; production Secure `__Host-` attributes remain configuration- and Mock-tested rather than
+Cloudflare/Mac-mini verified in this phase.

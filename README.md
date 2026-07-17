@@ -21,8 +21,10 @@ query, or complete recording was retained.
 Phase 2 implements the formal Axum backend: browser-bound QR pending state and SSE, an allowlisted
 website session, CSRF and Origin checks, opaque course/video/track handles, session-bound download
 tickets, strict single-Range streaming, concurrency limits, cleanup, security headers, and graceful
-shutdown. The complete Web layer is covered by Mock integration tests; real Web backend acceptance is
-recorded separately from the already completed real protocol validation.
+shutdown. The complete Web layer is covered by Mock integration tests. A separate user-initiated real
+Web acceptance run on 2026-07-17 passed QR start/SSE, whitelist login, website Session, courses, videos,
+video detail, ticket issue, HEAD, one-byte `206`, bounded-stream cancellation, permit release, logout,
+and ticket invalidation.
 
 There is intentionally no React frontend yet. Phase 2 also contains no video player, cache, database,
 object storage, full-video disk write, subtitles, PPT, AI summary, batch download, PAT input, deployment
@@ -158,6 +160,12 @@ See `docs/api.md` for response models and status codes.
 
 Detailed trust boundaries are in `docs/security-model.md`, `docs/web-session-model.md`, and
 `docs/download-proxy-security.md`.
+
+Real Web evidence remains deliberately narrow: one allowlisted user, one discovered authorized course
+with recordings, one video, and one track. The run read one byte for the Range probe and 2920 bytes
+before deliberately cancelling a bounded request; it did not download a complete recording. One other
+authorized course returned an explicit `502` instead of being misreported as an empty video list, and
+the observed track labels currently classify as `unknown`.
 
 ## Reference and license
 
