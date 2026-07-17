@@ -1,3 +1,4 @@
+mod course_diagnostics;
 mod courses;
 mod identity;
 mod login;

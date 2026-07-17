@@ -2,6 +2,8 @@ use reqwest::{Response, header::CONTENT_TYPE};
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 
+use super::course_diagnostics::{RestProbeMetadata, summarize_response_structure};
+
 use crate::{
     client::{ProtocolContext, UpstreamPurpose, read_limited_body, validate_upstream_url},
     error::ProtocolError,
@@ -18,7 +20,7 @@ pub struct CanvasTerm {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CanvasCourse {
     pub id: i64,
-    #[serde(alias = "shortName", alias = "originalName")]
+    #[serde(default, alias = "shortName", alias = "originalName")]
     pub name: String,
     #[serde(default, alias = "courseCode")]
     pub course_code: String,
@@ -77,48 +79,61 @@ async fn discover_with_rest(context: &ProtocolContext) -> Result<RestAttempt, Pr
 }
 
 async fn classify_rest_response(response: Response) -> Result<RestAttempt, ProtocolError> {
+    let metadata = RestProbeMetadata::from_response(&response);
     if response.status().is_redirection() || response.status().as_u16() == 401 {
+        metadata.record(None, "authentication_redirect_or_rejection", None);
         return Ok(RestAttempt::TryDashboard);
     }
     if response.status().as_u16() == 403 {
-        return classify_forbidden(response).await;
+        return classify_forbidden(response, metadata).await;
     }
     if response.status().is_server_error() {
+        metadata.record(None, "server_error", None);
         return Ok(RestAttempt::Complete(
             CourseDiscoveryOutcome::UpstreamChanged,
         ));
     }
     if !response.status().is_success() || !is_json(&response) {
+        let body = read_limited_body(response, MAX_COURSE_JSON_BYTES).await?;
+        metadata.record(Some(body.len()), &summarize_response_structure(&body), None);
         return Ok(RestAttempt::Complete(
             CourseDiscoveryOutcome::UnsupportedResponse,
         ));
     }
     let body = read_limited_body(response, MAX_COURSE_JSON_BYTES).await?;
-    let courses = match serde_json::from_slice(&body) {
+    let courses = match serde_json::from_slice::<Vec<CanvasCourse>>(&body) {
         Ok(courses) => courses,
         Err(_) => {
+            metadata.record(Some(body.len()), &summarize_response_structure(&body), None);
             return Ok(RestAttempt::Complete(
                 CourseDiscoveryOutcome::UnsupportedResponse,
             ));
         }
     };
+    metadata.record(Some(body.len()), "json_course_array", Some(courses.len()));
     Ok(RestAttempt::Complete(CourseDiscoveryOutcome::Success {
         source: CourseDiscoverySource::RestCookieSession,
         courses,
     }))
 }
 
-async fn classify_forbidden(response: Response) -> Result<RestAttempt, ProtocolError> {
+async fn classify_forbidden(
+    response: Response,
+    metadata: RestProbeMetadata,
+) -> Result<RestAttempt, ProtocolError> {
     let body = read_limited_body(response, MAX_COURSE_JSON_BYTES).await?;
     let summary = String::from_utf8_lossy(&body).to_ascii_lowercase();
     if summary.contains("csrf") {
+        metadata.record(Some(body.len()), "csrf_required", None);
         return Ok(RestAttempt::Complete(CourseDiscoveryOutcome::CsrfRequired));
     }
     if summary.contains("personal access token") || summary.contains("oauth access token") {
+        metadata.record(Some(body.len()), "access_token_required", None);
         return Ok(RestAttempt::Complete(
             CourseDiscoveryOutcome::RequiresPersonalAccessToken,
         ));
     }
+    metadata.record(Some(body.len()), "forbidden", None);
     Ok(RestAttempt::TryDashboard)
 }
 

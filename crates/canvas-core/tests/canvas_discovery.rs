@@ -38,6 +38,7 @@ const REST_CSRF_REQUIRED: usize = 2;
 const REST_PAT_REQUIRED: usize = 3;
 const REST_MALFORMED: usize = 4;
 const REST_REJECT_DASHBOARD_EMPTY: usize = 5;
+const REST_OPTIONAL_FIELDS_MISSING: usize = 6;
 
 #[tokio::test]
 async fn identity_uses_canvas_numeric_id_not_display_name() {
@@ -86,6 +87,26 @@ async fn cookie_rest_course_discovery_sends_no_authorization() {
     assert_eq!(courses[0].id, 101);
     assert!(state.saw_course_query.load(Ordering::SeqCst));
     assert!(!state.saw_authorization.load(Ordering::SeqCst));
+}
+
+#[tokio::test]
+async fn cookie_rest_course_discovery_accepts_missing_display_fields() {
+    let state = Arc::new(DiscoveryState::default());
+    state
+        .course_mode
+        .store(REST_OPTIONAL_FIELDS_MISSING, Ordering::SeqCst);
+    let server = MockServer::spawn(router(state)).await;
+
+    let outcome = discover_courses(&context(&server))
+        .await
+        .expect("missing display fields should not invalidate the course array");
+    let CourseDiscoveryOutcome::Success { courses, .. } = outcome else {
+        panic!("expected successful REST discovery");
+    };
+
+    assert_eq!(courses.len(), 2);
+    assert_eq!(courses[0].name, "Named course");
+    assert!(courses[1].name.is_empty());
 }
 
 #[tokio::test]
@@ -177,6 +198,13 @@ async fn canvas_courses(
         }
         REST_MALFORMED => {
             return ([("content-type", "application/json")], "{not-json").into_response();
+        }
+        REST_OPTIONAL_FIELDS_MISSING => {
+            return (
+                [("content-type", "application/json")],
+                r#"[{"id":101,"name":"Named course"},{"id":102}]"#,
+            )
+                .into_response();
         }
         REST_SUCCESS => {}
         _ => panic!("unknown test course mode"),
