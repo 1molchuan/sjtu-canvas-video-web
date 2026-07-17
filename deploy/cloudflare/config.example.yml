@@ -1,0 +1,7 @@
+tunnel: YOUR_TUNNEL_UUID
+credentials-file: /Users/YOUR_USER/.cloudflared/YOUR_TUNNEL_UUID.json
+
+ingress:
+  - hostname: canvas-video.example.com
+    service: http://127.0.0.1:3100
+  - service: http_status:404

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.example.canvas-video.daemon</string>
+  <key>UserName</key>
+  <string>YOUR_USER</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/YOUR_USER/Services/sjtu-canvas-video/current/bin/sjtu-canvas-video-server</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/YOUR_USER/Services/sjtu-canvas-video/current</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>SJTU_CANVAS_CONFIG</key>
+    <string>/Users/YOUR_USER/Services/sjtu-canvas-video/config/local.toml</string>
+    <key>SJTU_REAL_PROTOCOL_TEST</key>
+    <string>1</string>
+    <key>RUST_LOG</key>
+    <string>server=info,canvas_core=info</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/YOUR_USER/Services/sjtu-canvas-video/logs/server.stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/YOUR_USER/Services/sjtu-canvas-video/logs/server.stderr.log</string>
+</dict>
+</plist>
