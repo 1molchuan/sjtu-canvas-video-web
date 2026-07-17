@@ -12,7 +12,7 @@ pub async fn apply(request: Request, next: Next) -> Response {
     let headers = response.headers_mut();
     headers
         .entry(header::CACHE_CONTROL)
-        .or_insert(HeaderValue::from_static("private, no-store"));
+        .or_insert(HeaderValue::from_static("no-store"));
     headers.insert("content-security-policy", HeaderValue::from_static(CSP));
     headers.insert(
         "x-content-type-options",

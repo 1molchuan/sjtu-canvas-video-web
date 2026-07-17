@@ -3,6 +3,7 @@
 pub mod auth;
 pub mod config;
 pub mod error;
+pub mod frontend;
 pub mod gate;
 pub mod gateway;
 mod id;
@@ -17,8 +18,14 @@ pub mod ticket;
 use axum::Router;
 use state::AppState;
 
+pub use frontend::FrontendAssets;
+
 pub fn app_router(state: AppState) -> Router {
     routes::router(state)
+}
+
+pub fn app_router_with_frontend(state: AppState, assets: FrontendAssets) -> Router {
+    routes::router_with_frontend(state, assets)
 }
 
 #[cfg(test)]

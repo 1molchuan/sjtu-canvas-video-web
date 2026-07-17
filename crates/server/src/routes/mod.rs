@@ -6,13 +6,24 @@ mod me;
 mod tickets;
 mod videos;
 
-use axum::{Router, middleware};
+use axum::{Router, middleware, routing::any};
 use tower_http::limit::RequestBodyLimitLayer;
 
-use crate::state::AppState;
+use crate::{
+    error::WebError,
+    frontend::{self, FrontendAssets},
+    state::AppState,
+};
 
 pub fn router(state: AppState) -> Router {
-    let body_limit = state.config().security.max_request_body_bytes;
+    finish(api_routes(), state)
+}
+
+pub fn router_with_frontend(state: AppState, assets: FrontendAssets) -> Router {
+    finish(api_routes().merge(frontend::router(assets)), state)
+}
+
+fn api_routes() -> Router<AppState> {
     Router::new()
         .merge(health::router())
         .merge(me::router())
@@ -21,6 +32,13 @@ pub fn router(state: AppState) -> Router {
         .merge(download::router())
         .merge(videos::router())
         .merge(tickets::router())
+        .route("/api", any(api_not_found))
+        .route("/api/{*path}", any(api_not_found))
+}
+
+fn finish(routes: Router<AppState>, state: AppState) -> Router {
+    let body_limit = state.config().security.max_request_body_bytes;
+    routes
         .with_state(state)
         .layer(RequestBodyLimitLayer::new(body_limit))
         .layer(middleware::from_fn(
@@ -31,6 +49,10 @@ pub fn router(state: AppState) -> Router {
         ))
         .layer(middleware::from_fn(crate::middleware::request_log::apply))
         .layer(middleware::from_fn(crate::middleware::request_id::apply))
+}
+
+async fn api_not_found() -> WebError {
+    WebError::api_route_not_found()
 }
 
 #[cfg(test)]

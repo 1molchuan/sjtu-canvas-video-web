@@ -1,12 +1,13 @@
+mod validation;
+
 use std::{
     fs,
-    net::{IpAddr, SocketAddr},
-    path::Path,
+    net::IpAddr,
+    path::{Path, PathBuf},
 };
 
 use serde::Deserialize;
 use thiserror::Error;
-use url::{Host, Url};
 
 #[derive(Clone, Deserialize)]
 pub struct AppConfig {
@@ -18,9 +19,13 @@ pub struct AppConfig {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ServerConfig {
+    #[serde(default = "default_deployment_mode")]
+    pub mode: DeploymentMode,
     pub host: String,
     pub port: u16,
     pub public_origin: String,
+    #[serde(default)]
+    pub frontend_dist: Option<PathBuf>,
     pub shutdown_grace_seconds: u64,
     pub session_ttl_hours: u64,
     pub pending_login_ttl_minutes: u64,
@@ -32,6 +37,13 @@ pub struct ServerConfig {
     pub max_qr_starts_per_minute: usize,
     pub api_timeout_seconds: u64,
     pub upstream_connect_timeout_seconds: u64,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DeploymentMode {
+    Development,
+    Production,
 }
 
 #[derive(Clone, Deserialize)]
@@ -96,6 +108,18 @@ pub enum ConfigError {
     InvalidPendingLimit,
     #[error("auth allowlist must contain at least one stable identifier")]
     EmptyAllowlist,
+    #[error("production mode requires server.frontend_dist")]
+    ProductionFrontendRequired,
+    #[error("production server.frontend_dist must be an absolute path")]
+    ProductionFrontendPathAbsolute,
+    #[error("production mode requires an HTTPS public origin")]
+    ProductionHttpsRequired,
+    #[error("production mode requires Secure cookies")]
+    ProductionSecureCookieRequired,
+    #[error("production mode requires a __Host- session cookie")]
+    ProductionHostCookieRequired,
+    #[error("production mode rejects example allowlist values")]
+    ProductionPlaceholderAllowlist,
 }
 
 impl AppConfig {
@@ -105,91 +129,10 @@ impl AppConfig {
         config.validate()?;
         Ok(config)
     }
+}
 
-    pub fn listen_addr(&self) -> Result<SocketAddr, ConfigError> {
-        let host = self.parse_host()?;
-        Ok(SocketAddr::new(host, self.server.port))
-    }
-
-    pub fn validate(&self) -> Result<(), ConfigError> {
-        self.parse_host()?;
-        self.validate_public_origin()?;
-        self.validate_cookie()?;
-        self.validate_limits()?;
-        if self.auth.allowed_stable_ids.is_empty() && self.auth.allowed_stable_id_hashes.is_empty()
-        {
-            return Err(ConfigError::EmptyAllowlist);
-        }
-        if !self.cookie.http_only || self.cookie.path != "/" || self.cookie.domain.is_some() {
-            return Err(ConfigError::InvalidHostCookie);
-        }
-        if self.security.max_request_body_bytes == 0 {
-            return Err(ConfigError::InvalidDurations);
-        }
-        Ok(())
-    }
-
-    fn parse_host(&self) -> Result<IpAddr, ConfigError> {
-        let host = self
-            .server
-            .host
-            .parse::<IpAddr>()
-            .map_err(|_| ConfigError::InvalidHost(self.server.host.clone()))?;
-        if !host.is_loopback() {
-            return Err(ConfigError::PublicBindForbidden(host));
-        }
-        Ok(host)
-    }
-
-    fn validate_public_origin(&self) -> Result<(), ConfigError> {
-        let value = &self.server.public_origin;
-        let origin =
-            Url::parse(value).map_err(|_| ConfigError::InvalidPublicOrigin(value.clone()))?;
-        let valid_shape = matches!(origin.scheme(), "http" | "https")
-            && origin.host().is_some()
-            && origin.username().is_empty()
-            && origin.password().is_none()
-            && origin.path() == "/"
-            && origin.query().is_none()
-            && origin.fragment().is_none();
-        let valid_transport = origin.scheme() == "https" || is_loopback_origin(&origin);
-        if !valid_shape || !valid_transport {
-            return Err(ConfigError::InvalidPublicOrigin(value.clone()));
-        }
-        Ok(())
-    }
-
-    fn validate_cookie(&self) -> Result<(), ConfigError> {
-        let cookie = &self.cookie;
-        let invalid_host_cookie = cookie.name.starts_with("__Host-")
-            && (!cookie.secure || cookie.path != "/" || cookie.domain.is_some());
-        if invalid_host_cookie {
-            return Err(ConfigError::InvalidHostCookie);
-        }
-        let origin = Url::parse(&self.server.public_origin)
-            .map_err(|_| ConfigError::InvalidPublicOrigin(self.server.public_origin.clone()))?;
-        if !cookie.secure && !is_loopback_origin(&origin) {
-            return Err(ConfigError::InsecureCookie);
-        }
-        Ok(())
-    }
-
-    fn validate_limits(&self) -> Result<(), ConfigError> {
-        let server = &self.server;
-        let downloads_valid = server.max_global_downloads > 0
-            && server.max_downloads_per_user > 0
-            && server.max_downloads_per_user <= server.max_global_downloads;
-        if !downloads_valid {
-            return Err(ConfigError::InvalidDownloadLimits);
-        }
-        if server.max_pending_logins == 0 || server.max_qr_starts_per_minute == 0 {
-            return Err(ConfigError::InvalidPendingLimit);
-        }
-        if !server.has_positive_durations() {
-            return Err(ConfigError::InvalidDurations);
-        }
-        Ok(())
-    }
+fn default_deployment_mode() -> DeploymentMode {
+    DeploymentMode::Development
 }
 
 fn default_true() -> bool {
@@ -206,26 +149,6 @@ fn default_max_request_body_bytes() -> usize {
 
 fn default_max_qr_starts_per_minute() -> usize {
     6
-}
-
-fn is_loopback_origin(origin: &Url) -> bool {
-    match origin.host() {
-        Some(Host::Ipv4(address)) => address.is_loopback(),
-        Some(Host::Ipv6(address)) => address.is_loopback(),
-        Some(Host::Domain(domain)) => domain.eq_ignore_ascii_case("localhost"),
-        None => false,
-    }
-}
-
-impl ServerConfig {
-    fn has_positive_durations(&self) -> bool {
-        self.shutdown_grace_seconds > 0
-            && self.session_ttl_hours > 0
-            && self.pending_login_ttl_minutes > 0
-            && self.download_ticket_ttl_seconds > 0
-            && self.api_timeout_seconds > 0
-            && self.upstream_connect_timeout_seconds > 0
-    }
 }
 
 #[cfg(test)]

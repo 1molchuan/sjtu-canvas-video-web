@@ -28,6 +28,7 @@ pub enum WebErrorCode {
     InvalidRange,
     MultipleRangesUnsupported,
     RequestTooLarge,
+    ApiRouteNotFound,
     UpstreamRejectedRange,
     UpstreamUnavailable,
     Internal,
@@ -214,6 +215,14 @@ impl WebError {
             StatusCode::INTERNAL_SERVER_ERROR,
             WebErrorCode::Internal,
             "服务暂时不可用，请稍后重试。",
+        )
+    }
+
+    pub fn api_route_not_found() -> Self {
+        Self::new(
+            StatusCode::NOT_FOUND,
+            WebErrorCode::ApiRouteNotFound,
+            "API 路径不存在。",
         )
     }
 

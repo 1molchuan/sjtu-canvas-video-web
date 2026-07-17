@@ -1,9 +1,9 @@
 [server]
-mode = "development"
+mode = "production"
 host = "127.0.0.1"
 port = 3100
-# Vite is the browser-facing origin in local development.
-public_origin = "http://127.0.0.1:5173"
+public_origin = "https://canvas-video.example.com"
+frontend_dist = "/Users/YOUR_USER/Services/sjtu-canvas-video/current/frontend/dist"
 shutdown_grace_seconds = 15
 session_ttl_hours = 8
 pending_login_ttl_minutes = 5
@@ -16,19 +16,18 @@ api_timeout_seconds = 30
 upstream_connect_timeout_seconds = 10
 
 [auth]
-# Replace this non-user placeholder in config/local.toml. Never commit the real value.
 allowed_stable_ids = []
-allowed_stable_id_hashes = [
-  "sha256:0000000000000000000000000000000000000000000000000000000000000000"
-]
+# Replace this placeholder before production startup. Generate it with:
+# cargo run -p server --bin hash-stable-id
+allowed_stable_id_hashes = ["sha256:REPLACE_ME"]
 
 [cookie]
-name = "sjtu_canvas_video_session_dev"
-secure = false
+name = "__Host-sjtu_canvas_video_session"
+secure = true
 http_only = true
 same_site = "Lax"
 path = "/"
-# Production uses a Secure __Host- cookie; see production.example.toml.
+# Do not set Domain when using the __Host- prefix.
 
 [security]
 csrf_header = "X-CSRF-Token"

@@ -8,7 +8,7 @@ use std::path::PathBuf;
 const BASE_CONFIG: &str = r#"
 [server]
 host = "127.0.0.1"
-port = 3000
+port = 3100
 public_origin = "https://canvas-video.example.test"
 session_ttl_hours = 8
 pending_login_ttl_minutes = 5
@@ -73,6 +73,6 @@ fn repository_example_configuration_is_valid() {
     let config = AppConfig::load(path).expect("example configuration should be valid");
     assert_eq!(
         config.listen_addr().expect("address should parse").port(),
-        3000
+        3100
     );
 }
