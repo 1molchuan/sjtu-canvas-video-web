@@ -1,6 +1,6 @@
-# Phase 2 Web API
+# Web API
 
-This document describes the same-origin Axum API implemented in Phase 2. All opaque identifiers are
+This document describes the same-origin Axum API implemented in Phase 2 and consumed by the Phase 3 React frontend. All opaque identifiers are
 random, memory-only handles. They are not Canvas course IDs, video-system IDs, track URLs, or tokens.
 
 ## General rules
@@ -12,6 +12,8 @@ random, memory-only handles. They are not Canvas course IDs, video-system IDs, t
 - `POST` requests must have an exact configured `Origin`. Ticket creation and authenticated logout
   also require the session CSRF token in the configured header, normally `X-CSRF-Token`.
 - Request bodies are capped by `security.max_request_body_bytes`.
+- Unknown `/api` routes return a structured JSON `404`; they never fall back to React `index.html`.
+- Ordinary API responses use `Cache-Control: no-store`; downloads use `private, no-store`.
 
 ```json
 {
@@ -74,7 +76,8 @@ loaded as a remote image; the frontend should render the QR locally. Reconnectin
 history without duplicating already observed state. Closing SSE does not cancel the backend login.
 
 After `authenticated`, call `GET /api/auth/session` with the same pending cookie. SSE itself cannot set
-the authenticated website cookie.
+the authenticated website cookie. This call atomically claims the completed pending login, rotates to a
+new Session ID, sets the formal Cookie, and returns the in-memory CSRF token.
 
 ## Website session
 

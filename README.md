@@ -1,115 +1,65 @@
 # SJTU Canvas Video Web
 
-Private, browser-based access to recordings that a signed-in SJTU Canvas user is already authorized to
-view. The intended production origin is a Mac mini reached through Cloudflare Tunnel; the Axum process
-must listen only on `127.0.0.1`.
+`Canvas Video Helper` 是一个非官方、仅供受邀用户使用的私人课程录像下载工具。用户使用自己的 jAccount 扫码，服务端只代理该用户当前 Canvas 会话有权访问的录像；浏览器无需安装桌面客户端。
 
-## Status
+本项目不属于上海交通大学、Canvas 或课程录像平台，不提供公开注册、分享、在线播放或批量下载，也不会缓存、落盘或上传课程视频。
 
-Phase 1 and Phase 1.5 are complete. A user-initiated real run on Windows with Rust 1.97.1 verified the
-full protocol chain on 2026-07-17:
+## 当前状态
 
-```text
-jAccount QR → express login → Canvas Cookie session → course discovery
-→ OIDC/LTI → video list → video detail/tracks → one-byte Range probe
-```
-
-That run used the user's own account and one course they could already open. Cookie-only Canvas course
-discovery succeeded without a Personal Access Token. No account, course, video, Cookie, token, path,
-query, or complete recording was retained.
-
-Phase 2 implements the formal Axum backend: browser-bound QR pending state and SSE, an allowlisted
-website session, CSRF and Origin checks, opaque course/video/track handles, session-bound download
-tickets, strict single-Range streaming, concurrency limits, cleanup, security headers, and graceful
-shutdown. The complete Web layer is covered by Mock integration tests. A separate user-initiated real
-Web acceptance run on 2026-07-17 passed QR start/SSE, whitelist login, website Session, courses, videos,
-video detail, ticket issue, HEAD, one-byte `206`, bounded-stream cancellation, permit release, logout,
-and ticket invalidation.
-
-There is intentionally no React frontend yet. Phase 2 also contains no video player, cache, database,
-object storage, full-video disk write, subtitles, PPT, AI summary, batch download, PAT input, deployment
-automation, or public proxy.
-
-## Repository layout
+Phase 1.5 已在用户本人授权环境中真实验证完整协议链：
 
 ```text
-.
-├── crates/
-│   ├── canvas-core/       # injectable jAccount/Canvas/LTI/video protocol; no Axum
-│   ├── protocol-cli/      # explicitly gated real-protocol validator
-│   └── server/            # formal Axum session/API/streaming backend
-├── config/example.toml    # safe production-shaped example; no real user data
-├── docs/
-│   ├── api.md
-│   ├── download-proxy-security.md
-│   ├── phase-1-runbook.md
-│   ├── phase-2-backend.md
-│   ├── protocol-validation.md
-│   ├── reference-analysis.md
-│   ├── security-model.md
-│   └── web-session-model.md
-├── frontend/              # reserved for the later React phase
-├── deploy/                # reserved for the deployment phase
-└── THIRD_PARTY_NOTICES.md
+jAccount QR → express login → Canvas Cookie Session → 课程发现
+→ OIDC/LTI → 视频列表 → 视频详情/轨道 → Range 探测
 ```
 
-The ignored reference clone under `research_sjtu_canvas_helper/SJTU-Canvas-Helper/` is research input,
-not a runtime dependency. Attribution and the upstream MIT text are retained in
-`THIRD_PARTY_NOTICES.md`.
+Phase 2 已真实验收浏览器后端：扫码 SSE、白名单 Session、课程/录像 API、ticket、`206` 流式代理、取消、permit 释放、登出和 ticket 失效均通过。
 
-## Automated verification
+Phase 3 增加 React 产品界面、Axum 同源静态资源、发布包、macOS `launchd` 与 Cloudflare Tunnel 配置。前端和 Mock 浏览器 E2E 可在本地自动验证；Mac mini 与公网域名必须按 [生产验收清单](docs/production-acceptance.md) 在实际部署后单独记录，Windows 本地结果不能替代公网 `206` 与 Cloudflare 不缓存验证。
 
-The workspace is pinned by `rust-toolchain.toml`. Mock tests require no SJTU account and never contact
-real university services:
+## 架构
 
-```bash
-cargo fmt --all -- --check
-cargo check --workspace --all-targets
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace --all-targets
-cargo test -p canvas-core --test full_mock_protocol
-cargo test -p server --tests
+```text
+浏览器
+  │ HTTPS、同源 API、HttpOnly Session Cookie
+Cloudflare Tunnel
+  │ 主动出站连接；源站无公网监听
+Axum 127.0.0.1:3100
+  ├── React 静态资源
+  ├── 网站 Session / CSRF / opaque handles / tickets
+  └── 每 Session 独立 ProtocolContext + Cookie Jar
+       └── jAccount / Canvas / LTI / 视频源
 ```
 
-## Protocol validator
+协议核心、Web 状态和界面相互分离：
 
-Real commands are disabled unless the operator explicitly sets `SJTU_REAL_PROTOCOL_TEST=1`. A supplied
-course ID must come from a Canvas course URL the operator can already open; the CLI never enumerates
-IDs.
+```text
+crates/canvas-core/   jAccount、Canvas、LTI、视频协议；不依赖 Axum
+crates/protocol-cli/  显式门控的真实协议验证 CLI
+crates/server/        Session、SSE、API、ticket、Range 流式代理、静态资源
+frontend/             React + TypeScript + Vite
+config/               开发与生产配置示例
+deploy/               launchd 与 cloudflared 模板
+scripts/              构建、安装、健康检查、更新、回滚
+docs/                 协议、安全、API、前端和部署说明
+```
 
-PowerShell:
+参考项目 `Okabe-Rintarou-0/SJTU-Canvas-Helper` 固定在 commit `b5d895af57aaa74dfd53cef80dfb64c76c023c20` (`v3.0.8`)。归属与 MIT License 见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## 本地开发
+
+要求：Rust（由 `rust-toolchain.toml` 固定）、Node.js、npm，以及运行 Playwright E2E 时可用的 Google Chrome。
+
+1. 复制开发配置并替换白名单占位值：
 
 ```powershell
-$env:SJTU_REAL_PROTOCOL_TEST = "1"
-cargo run -p protocol-cli -- login
-cargo run -p protocol-cli -- discover-courses
-cargo run -p protocol-cli -- full --course-id 12345
-```
-
-macOS/Linux:
-
-```bash
-export SJTU_REAL_PROTOCOL_TEST=1
-cargo run -p protocol-cli -- login
-```
-
-The `full` command writes only a sanitized, Git-ignored `.local/protocol-report.json`. See
-`docs/phase-1-runbook.md` before scanning.
-
-## Run the Phase 2 backend
-
-Copy `config/example.toml` to the Git-ignored `config/local.toml`, replace the placeholder with a private
-stable-identity hash, and keep production settings loopback-only with a Secure `__Host-` cookie. The
-protocol CLI prints a deterministic `whitelist_hash=sha256:...` after authenticated identity discovery
-without printing the stable ID itself. A stdin-only helper is also available:
-
-```powershell
+Copy-Item config/example.toml config/local.toml
 $stableId = Read-Host "Stable ID" -MaskInput
 $stableId | cargo run -q -p server --bin hash-stable-id
 Remove-Variable stableId
 ```
 
-The production server also requires the explicit real-protocol gate:
+2. 启动后端。真实协议默认关闭，只有操作者显式开启才会访问交大服务：
 
 ```powershell
 $env:SJTU_REAL_PROTOCOL_TEST = "1"
@@ -118,11 +68,42 @@ $env:RUST_LOG = "server=info,canvas_core=info"
 cargo run -p server
 ```
 
-For local HTTP acceptance, use a non-`__Host-` cookie with `secure = false` and an exact loopback
-`public_origin`. Configuration validation permits that exception only for loopback HTTP. The full setup,
-safe evidence rules, and manual flow are in `docs/phase-2-backend.md`.
+3. 另一个终端启动 Vite：
 
-## Implemented API
+```powershell
+Set-Location frontend
+npm ci
+npm run dev
+```
+
+浏览器访问 `http://127.0.0.1:5173`。Vite 将同源 `/api` 代理到 `127.0.0.1:3100`，后端不启用宽泛 CORS。开发配置使用非 Secure 的本地 Cookie；生产配置不会自动继承该例外。
+
+## 前端命令
+
+```bash
+cd frontend
+npm ci
+npm run typecheck
+npm run lint
+npm run test
+npm run test:e2e
+npm run build
+```
+
+Playwright 使用纯测试 fixture server，不在生产后端添加 Mock 登录入口。trace、video、screenshot 与生产 source map 默认关闭。
+
+## Rust 质量门
+
+```bash
+cargo fmt --all -- --check
+cargo check --workspace --all-targets
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --all-targets
+```
+
+Mock 测试不会访问真实交大服务。真实 CLI 与真实 server 均要求 `SJTU_REAL_PROTOCOL_TEST=1`，不得在 CI 自动设置。
+
+## API
 
 ```text
 GET  /api/health
@@ -139,40 +120,85 @@ HEAD /api/download/:ticket
 GET  /api/download/:ticket
 ```
 
-See `docs/api.md` for response models and status codes.
+登录成功 SSE 事件不能设置 Session Cookie。前端收到 `authenticated` 后调用现有 `GET /api/auth/session` 完成 pending claim，浏览器才获得正式 Cookie。完整 schema 见 [docs/api.md](docs/api.md)。
 
-## Security invariants
+## 下载模型
 
-- Every authenticated website session owns one independent in-memory `ProtocolContext` and Cookie Jar.
-- Upstream cookies, `tokenId`, course tokens, source URLs, and real upstream identifiers never enter
-  browser JSON or browser storage.
-- Stable identity authorization uses a private exact value or normalized `sha256:` digest, never a name.
-- Login success creates a new random website session ID; a pending ID cannot become the session ID.
-- Session cookies are `HttpOnly`, `SameSite=Lax`, `Path=/`; production uses Secure `__Host-` semantics.
-- State-changing authenticated routes require an exact Origin and session-bound CSRF token; CORS is off.
-- Course/video/track handles and tickets are random, memory-only, parent-bound, and session-bound.
-- Download URLs cannot encode or accept an upstream URL. The source is registered only from an
-  authenticated video-detail response and revalidated before use and after every redirect.
-- Only one validated byte range is forwarded. Upstream `Set-Cookie` and hop-by-hop headers are removed.
-- Response bodies stream through Axum; complete recordings are not buffered, cached, or written to disk.
-- Logout, expiry, shutdown, or process restart destroys the relevant in-memory authentication state.
-- Logs use request IDs and route templates, never raw session, pending, ticket, URL, filename, or token.
+前端先用 Session 内存中的 CSRF token 签发 60 秒 ticket，再创建临时同源 `<a>` 触发浏览器原生下载。它不会调用 `fetch().blob()`、IndexedDB、Service Worker 或前端视频缓存。
 
-Detailed trust boundaries are in `docs/security-model.md`, `docs/web-session-model.md`, and
-`docs/download-proxy-security.md`.
+ticket 只存在内存并绑定 Session、课程、录像和轨道；URL 中不编码上游地址。后端校验单 Range、上游 host 与 DNS/IP，流式转发 `200`、`206`、`416`，过滤 `Set-Cookie` 和 hop-by-hop headers。详见 [docs/frontend-download-model.md](docs/frontend-download-model.md) 与 [docs/download-proxy-security.md](docs/download-proxy-security.md)。
 
-Real Web evidence remains deliberately narrow: one allowlisted user, one discovered authorized course
-with recordings, one video, and one track. The run read one byte for the Range probe and 2920 bytes
-before deliberately cancelling a bounded request; it did not download a complete recording. One other
-authorized course returned an explicit `502` instead of being misreported as an empty video list, and
-the observed track labels currently classify as `unknown`.
+## 生产构建
 
-## Reference and license
+macOS 应在 Mac mini 本机执行：
 
-Protocol research is based on the actual Rust and React implementation of
-`Okabe-Rintarou-0/SJTU-Canvas-Helper` at commit
-`b5d895af57aaa74dfd53cef80dfb64c76c023c20` (`v3.0.8`), not only its README. Desktop-only global state,
-persistent cookies/tokens, download workers, and unrelated features were not copied.
+```bash
+./scripts/build-release.sh
+```
 
-This project is MIT licensed. Source evidence, derived protocol facts, copyright attribution, and the
-upstream MIT text are documented in `docs/reference-analysis.md` and `THIRD_PARTY_NOTICES.md`.
+Windows 可验证和生成 Windows 包：
+
+```powershell
+./scripts/build-release.ps1
+```
+
+输出目录：
+
+```text
+release/
+├── bin/sjtu-canvas-video-server
+├── frontend/dist/
+├── config/example.toml
+├── deploy/
+├── scripts/
+└── VERSION
+```
+
+`VERSION` 只记录 Git SHA、UTC 构建时间和前后端包版本，不记录用户名、构建路径或 secret。Windows 构建不能冒充 macOS 二进制。
+
+## Mac mini 与 Cloudflare Tunnel
+
+生产配置从 [config/production.example.toml](config/production.example.toml) 复制到部署目录外的私有 `config/local.toml`，权限设为 `600`。生产模式在启动时拒绝：
+
+- 非 loopback bind；
+- 非 HTTPS `public_origin`；
+- 非 Secure 或非 `__Host-` Session Cookie；
+- Cookie Domain、非根 Path 或非 HttpOnly；
+- 相对/缺失的前端 dist；
+- 示例白名单。
+
+部署拓扑直接使用 `cloudflared → http://127.0.0.1:3100`，不需要 Caddy。安装、LaunchAgent/LaunchDaemon、Tunnel、Cache Rule、更新与回滚见：
+
+- [docs/deployment-macos-cloudflare.md](docs/deployment-macos-cloudflare.md)
+- [docs/update-and-rollback.md](docs/update-and-rollback.md)
+- [docs/production-acceptance.md](docs/production-acceptance.md)
+
+Cloudflare 必须对 `/api/*` 配置 Bypass cache。公网验收需确认下载响应仍为 `206`、`Content-Range` 正确、`Cache-Control: private, no-store`，且 `CF-Cache-Status` 不是缓存命中。
+
+## 安全不变量
+
+- 每个网站 Session 独占 `ProtocolContext` 与 Cookie Jar；不存在全局上游 Cookie 或课程 token。
+- 上游 Cookie、`tokenId`、视频 token、真实资源 ID 和视频 URL不进入浏览器 JSON或持久化存储。
+- Stable ID 只用于服务端白名单；界面不显示原文或可离线比对的哈希。
+- CSRF token、QR URL、pending ID、handles 与 ticket 只在必要的内存生命周期内存在。
+- `/api/*` 永不进入 SPA fallback；API/HTML 不缓存，只有 Vite 哈希静态资源长期缓存。
+- 下载全程流式转发，不生成视频临时文件；登出、过期、关机或重启销毁内存会话。
+- CORS 默认关闭，Origin 精确匹配，生产 Cookie 为 `Secure; HttpOnly; SameSite=Lax; Path=/` 且无 Domain。
+- 日志只记录 request ID、路由模板、脱敏句柄和状态，不记录实际 URI、Cookie、token、文件名或上游 URL。
+
+详细威胁边界见 [docs/security-model.md](docs/security-model.md)。
+
+## 已知限制
+
+- 这是私人 MVP，不是学校官方服务，也不适合公开运营。
+- Session、handles、tickets 和上游 Cookie 只在内存中；应用重启后所有用户必须重新扫码。
+- 第一版只支持单轨、单 Range 下载；不支持多 Range、批量下载、在线播放、字幕、PPT、转码或合并。
+- 已观察到某些已授权课程的视频接口可能返回显式 `502`；前端显示错误和 request ID，不伪装为空课程。
+- 真实轨道类型可能为 `unknown`；前端中性显示“视频轨道 1/2”，不根据顺序猜测。
+- Mac mini、Cloudflare 与 Safari/Android 的状态只可按实际验收结果记录，不能由 Mock 或 Windows 测试推断。
+
+## 隐私与许可
+
+服务不保存账号密码，不把上游 Cookie 发给浏览器，不长期保存 jAccount/Canvas 会话，也不缓存课程视频。用户只能下载本人当前有权限访问的内容，并应遵守课程与著作权要求，不得公开传播受访问控制保护的录像。
+
+本项目使用 MIT License。真实账号、稳定身份、白名单、Tunnel credential、协议报告、浏览器 trace、HAR、截图和视频文件均不得提交 Git。

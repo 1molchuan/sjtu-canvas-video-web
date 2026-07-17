@@ -1,7 +1,8 @@
 # Phase 2 backend runbook
 
-Phase 2 implements the browser-facing Axum backend only. There is no React UI. Use the API contract in
-`docs/api.md` and a same-origin browser test page or HTTP client for manual checks.
+As delivered, Phase 2 implemented the browser-facing Axum backend only and had no React UI. Phase 3 now
+consumes it without changing the verified protocol or Session contract. Use the API contract in
+`docs/api.md` for manual checks.
 
 ## Automated verification
 
@@ -21,16 +22,18 @@ The gate is checked at process startup; it is not a Mock success path.
 ## Create a private configuration
 
 Copy `config/example.toml` to the Git-ignored `config/local.toml`. Never modify the example with a real
-identity. Production defaults must retain `host = "127.0.0.1"`, an HTTPS `public_origin`, and a Secure
-`__Host-` cookie with no Domain.
+identity. The current example is for Vite local development. Production uses
+`config/production.example.toml` and must retain `host = "127.0.0.1"`, an HTTPS `public_origin`, and a
+Secure `__Host-` cookie with no Domain.
 
 For local HTTP acceptance only, use:
 
 ```toml
 [server]
 host = "127.0.0.1"
-port = 3000
-public_origin = "http://127.0.0.1:3000"
+mode = "development"
+port = 3100
+public_origin = "http://127.0.0.1:3100"
 # Keep the remaining server fields from config/example.toml.
 
 [cookie]
@@ -94,7 +97,7 @@ export RUST_LOG=server=info,canvas_core=info
 cargo run -p server
 ```
 
-The listener must report `127.0.0.1:3000`. A missing real gate, invalid allowlist, public bind, or unsafe
+The listener must report `127.0.0.1:3100`. A missing real gate, invalid allowlist, public bind, or unsafe
 cookie/origin combination fails startup explicitly.
 
 ## Manual same-origin flow

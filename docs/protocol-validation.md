@@ -251,3 +251,10 @@ This evidence remains limited to one user and one successful course/video/track.
 observed detail response currently map to `unknown`. The Web run used the documented loopback HTTP cookie
 exception; production Secure `__Host-` attributes remain configuration- and Mock-tested rather than
 Cloudflare/Mac-mini verified in this phase.
+
+## Phase 3 relationship to protocol evidence
+
+Phase 3 adds a React client, same-origin static serving and deployment assets. It does not change the
+real jAccount/Canvas/LTI/video implementation validated above. Frontend Mock tests are not additional
+evidence about upstream protocol availability. Mac mini and Cloudflare production acceptance remain a
+separate evidence class and must be recorded only after running `docs/production-acceptance.md`.

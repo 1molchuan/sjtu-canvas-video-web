@@ -182,3 +182,26 @@ Log canary checks found no actual QR, pending, CSRF, ticket, course/video/track 
 authorization value. They did find the public endpoint template name `getAccessTokenByTokenId`. Although
 no value was present, Phase 2 replaced that log-only label with `<video-api-token-exchange>` and added a
 regression test so the sensitive parameter name no longer appears in future logs.
+
+## Phase 3 browser and edge controls
+
+- The browser holds CSRF, QR URL, pending ID, handles and ticket only in memory. No authentication or
+  course response is written to localStorage, sessionStorage, IndexedDB or a Service Worker cache.
+- QR rendering is local. No remote QR image, external font, icon CDN, analytics or third-party script is
+  loaded.
+- Video download uses a temporary native anchor. JavaScript never fetches or buffers the video body as
+  a Blob.
+- Axum serves the built SPA and API from one origin. `/api` and `/api/*` have an explicit JSON 404 and
+  cannot reach the SPA fallback; missing assets also remain 404.
+- `index.html` is `no-cache`, hashed assets are immutable, ordinary API responses are `no-store`, and
+  downloads remain `private, no-store`.
+- Production validation requires loopback bind, HTTPS public origin, an absolute existing frontend
+  distribution, Secure `__Host-` Cookie semantics, and a non-example allowlist.
+- The Cloudflare rule must bypass cache for `/api/*`. Origin headers do not replace a public-domain check
+  of `206`, `Content-Range` and non-HIT cache status.
+- Tunnel credentials stay in the operator's cloudflared directory. They are absent from application
+  config, release archives, launchd property lists and Git.
+
+Phase 3 does not widen trust in proxy headers: `trust_proxy_headers` remains false. The direct peer seen
+by Axum is cloudflared on loopback; security decisions continue to use Session, pending binding, Origin,
+CSRF and server-side authorization rather than client-supplied forwarding headers.
