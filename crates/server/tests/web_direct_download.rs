@@ -4,6 +4,7 @@ use axum::http::{StatusCode, header};
 
 use support::{
     HarnessOptions, PUBLIC_ORIGIN, RequestSpec, harness, login, ready_download, request,
+    response_json,
 };
 
 #[tokio::test]
@@ -14,6 +15,15 @@ async fn explicit_direct_mode_probes_compatibility_then_redirects() {
     })
     .await;
     let ready = ready_download(&harness.app).await;
+    let session = request(
+        &harness.app,
+        RequestSpec::get("/api/auth/session").cookie(&ready.auth.cookie),
+    )
+    .await;
+    assert_eq!(
+        response_json(session).await["download_delivery"],
+        "direct_stream"
+    );
 
     let response = request(
         &harness.app,

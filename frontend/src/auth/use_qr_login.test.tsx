@@ -28,6 +28,7 @@ function authenticatedSession(): SessionResponse {
     user: { display_label: "已登录用户", identity_source: "canvas" },
     csrf_token: "memory-only-token",
     expires_at: "2030-01-01T00:00:00Z",
+    download_delivery: "native_navigation",
   };
 }
 

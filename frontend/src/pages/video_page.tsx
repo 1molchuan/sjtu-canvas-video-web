@@ -4,6 +4,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 
 import { createCourseApi, shouldRetryQuery, type CourseApi } from "../api/courses";
 import type { DownloadApi } from "../api/downloads";
+import type { DirectDownloadAdapter } from "../api/direct_download";
 import { useAuth } from "../auth/auth_context";
 import { AppShell } from "../components/app_shell";
 import { EmptyState } from "../components/empty_state";
@@ -15,6 +16,7 @@ type VideoPageProps = {
   api?: CourseApi;
   downloads?: DownloadApi;
   startDownload?: (url: string) => void;
+  directDownload?: DirectDownloadAdapter;
 };
 
 export function VideoPage(props: VideoPageProps) {
@@ -55,6 +57,7 @@ export function VideoPage(props: VideoPageProps) {
               index={index}
               downloads={props.downloads}
               startDownload={props.startDownload}
+              directDownload={props.directDownload}
             />
           ))}
         </section>

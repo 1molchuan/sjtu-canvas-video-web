@@ -9,19 +9,35 @@ remain on the server. A valid GET or HEAD then receives `307 Temporary Redirect`
 `Cache-Control: private, no-store` and `Referrer-Policy: no-referrer`; the browser requests the video
 source directly and the video body does not traverse the deployment server.
 
+Real production probes on 2026-07-17 established that the current video source:
+
+- returns `206` to navigation-like, CORS, and Canvas-Referer one-byte requests;
+- advertises byte ranges and `video/mp4`;
+- permits the production Origin through CORS;
+- does not require a Referer for the tested resource;
+- does not return `Content-Disposition: attachment`.
+
+The last point explains why a plain anchor redirect failed: once the same-origin ticket redirects to a
+cross-origin MP4, the browser ignores the anchor `download` hint and attempts media playback. The direct
+mode frontend therefore uses the File System Access API. It asks the user for a destination before ticket
+creation, follows the validated ticket redirect with `fetch`, and pipes `Response.body` directly into the
+chosen file. It never creates a Blob or buffers the full recording in JavaScript or on the deployment
+server. This requires a current Chromium-based browser such as Chrome or Edge and has no silent proxy
+fallback.
+
 This mode changes the confidentiality boundary:
 
 - the short-lived upstream URL becomes visible to the browser and intermediaries handling the redirect;
 - the deployment cannot enforce upstream response headers, filenames, Range behavior, cancellation, or
   per-user/global streaming concurrency after the redirect;
-- direct access can fail when the video source requires the Canvas Referer;
+- a future upstream CORS or authentication change can make direct streaming fail;
 - the upstream URL lifetime and replay behavior have not yet been established.
 
 The setting is therefore opt-in, is never selected automatically, and has no silent proxy fallback.
 Disable it by restoring `download_delivery = "proxy"` and restarting the in-memory service. A restart
 invalidates website Sessions and tickets.
 
-While this experiment is enabled, the server performs three header-only compatibility checks before
+While this experiment is enabled, the server performs three one-byte compatibility checks before
 issuing the redirect. Each check requests only `Range: bytes=0-0`: a navigation-like request without
 Referer, a CORS request carrying only the configured public Origin, and a proxy control request carrying
 the verified Canvas Referer. The response body is dropped immediately. Logs contain only the probe mode,

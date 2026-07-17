@@ -189,8 +189,10 @@ regression test so the sensitive parameter name no longer appears in future logs
   course response is written to localStorage, sessionStorage, IndexedDB or a Service Worker cache.
 - QR rendering is local. No remote QR image, external font, icon CDN, analytics or third-party script is
   loaded.
-- Video download uses a temporary native anchor. JavaScript never fetches or buffers the video body as
-  a Blob.
+- Proxy delivery uses a temporary native anchor. Explicit direct delivery uses the File System Access
+  API and pipes the cross-origin response stream into a user-selected file. Neither path creates a Blob
+  or buffers the complete video in JavaScript; direct delivery exposes the short-lived source URL to the
+  browser and requires the source's CORS policy.
 - Axum serves the built SPA and API from one origin. `/api` and `/api/*` have an explicit JSON 404 and
   cannot reach the SPA fallback; missing assets also remain 404.
 - `index.html` is `no-cache`, hashed assets are immutable, ordinary API responses are `no-store`, and

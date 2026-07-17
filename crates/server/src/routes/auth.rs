@@ -94,6 +94,8 @@ struct SessionResponse {
     csrf_token: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     expires_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    download_delivery: Option<&'static str>,
 }
 
 #[derive(Serialize)]
@@ -108,7 +110,7 @@ async fn auth_session(
 ) -> Result<Response, WebError> {
     let now = OffsetDateTime::now_utc();
     if let Some(session) = active_session(&state, &headers, now)? {
-        return session_response(&session, None);
+        return session_response(&session, state.config(), false);
     }
     let Some(pending_cookie) = browser_cookie::read_pending(&headers, state.config()) else {
         return Ok(Json(unauthenticated()).into_response());
@@ -133,7 +135,7 @@ async fn auth_session(
         .map_err(|_| WebError::internal())?,
     );
     state.sessions().insert(session.clone());
-    session_response(&session, Some(state.config()))
+    session_response(&session, state.config(), true)
 }
 
 async fn logout(State(state): State<AppState>, headers: HeaderMap) -> Result<Response, WebError> {
@@ -175,7 +177,8 @@ fn active_session(
 
 fn session_response(
     session: &Arc<UserSession>,
-    new_session_config: Option<&crate::config::AppConfig>,
+    config: &crate::config::AppConfig,
+    set_cookie: bool,
 ) -> Result<Response, WebError> {
     let source = match session.identity().source {
         canvas_core::canvas::IdentitySource::MySjtuAccount => "my_sjtu",
@@ -194,9 +197,10 @@ fn session_response(
                 .format(&Rfc3339)
                 .map_err(|_| WebError::internal())?,
         ),
+        download_delivery: Some(config.server.download_delivery.browser_mode()),
     };
     let mut response = Json(body).into_response();
-    if let Some(config) = new_session_config {
+    if set_cookie {
         append_session_cookies(&mut response, session, config)?;
     }
     Ok(response)
@@ -242,5 +246,6 @@ fn unauthenticated() -> SessionResponse {
         user: None,
         csrf_token: None,
         expires_at: None,
+        download_delivery: None,
     }
 }

@@ -4,19 +4,36 @@ import { Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import type { CourseApi } from "../api/courses";
+import type { DirectDownloadAdapter, DirectDownloadFile } from "../api/direct_download";
 import type { DownloadApi } from "../api/downloads";
-import { renderWithProviders } from "../test/render";
+import type { AuthApi } from "../api/auth";
+import { authenticatedSession, fakeAuthApi, renderWithProviders } from "../test/render";
 import { VideoPage } from "./video_page";
 
-function renderPage(options: { api: CourseApi; downloads?: DownloadApi; startDownload?: (url: string) => void }) {
+type RenderOptions = {
+  api: CourseApi;
+  downloads?: DownloadApi;
+  startDownload?: (url: string) => void;
+  directDownload?: DirectDownloadAdapter;
+  authApi?: AuthApi;
+};
+
+function renderPage(options: RenderOptions) {
   return renderWithProviders(
     <Routes>
       <Route
         path="/courses/:courseHandle/videos/:videoHandle"
-        element={<VideoPage api={options.api} downloads={options.downloads} startDownload={options.startDownload} />}
+        element={
+          <VideoPage
+            api={options.api}
+            downloads={options.downloads}
+            startDownload={options.startDownload}
+            directDownload={options.directDownload}
+          />
+        }
       />
     </Routes>,
-    { route: "/courses/opaque-course/videos/opaque-video" },
+    { authApi: options.authApi, route: "/courses/opaque-course/videos/opaque-video" },
   );
 }
 
@@ -65,5 +82,32 @@ describe("VideoPage", () => {
       csrfToken: "memory-only-csrf",
     });
     expect(screen.queryByText("short-lived-ticket")).not.toBeInTheDocument();
+  });
+
+  it("selects a destination before issuing a ticket and streams directly", async () => {
+    const user = userEvent.setup();
+    const file = { createWritable: vi.fn() } as unknown as DirectDownloadFile;
+    const selectFile = vi.fn().mockResolvedValue(file);
+    const stream = vi.fn().mockResolvedValue(undefined);
+    const issueTicket = vi.fn().mockResolvedValue({
+      download_url: "/api/download/direct-ticket",
+      expires_in_seconds: 60,
+    });
+    const startDownload = vi.fn();
+    const session = { ...authenticatedSession(), download_delivery: "direct_stream" as const };
+    renderPage({
+      api: detailApi(),
+      downloads: { issueTicket },
+      startDownload,
+      directDownload: { selectFile, stream },
+      authApi: fakeAuthApi(session),
+    });
+
+    await user.click(await screen.findByRole("button", { name: "下载视频轨道 1" }));
+    await waitFor(() => expect(stream).toHaveBeenCalledWith("/api/download/direct-ticket", file));
+    expect(selectFile).toHaveBeenCalledWith("track-one.mp4");
+    expect(selectFile.mock.invocationCallOrder[0]).toBeLessThan(issueTicket.mock.invocationCallOrder[0]);
+    expect(startDownload).not.toHaveBeenCalled();
+    expect(screen.getByText("直连下载已完成。")).toBeInTheDocument();
   });
 });

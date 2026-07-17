@@ -128,7 +128,7 @@ GET  /api/download/:ticket
 
 ## 下载模型
 
-前端先用 Session 内存中的 CSRF token 签发 60 秒 ticket，再创建临时同源 `<a>` 触发浏览器原生下载。它不会调用 `fetch().blob()`、IndexedDB、Service Worker 或前端视频缓存。
+默认代理模式下，前端用 Session 内存中的 CSRF token 签发 60 秒 ticket，再创建临时同源 `<a>` 触发浏览器原生下载。显式直连实验模式会先让用户选择本地文件，再把视频源响应流直接写入该文件，从而避免服务器承载视频 body。两种模式都不会调用 `fetch().blob()`、IndexedDB、Service Worker 或前端视频缓存。
 
 ticket 只存在内存并绑定 Session、课程、录像和轨道；URL 中不编码上游地址。后端校验单 Range、上游 host 与 DNS/IP，流式转发 `200`、`206`、`416`，过滤 `Set-Cookie` 和 hop-by-hop headers。详见 [docs/frontend-download-model.md](docs/frontend-download-model.md) 与 [docs/download-proxy-security.md](docs/download-proxy-security.md)。
 

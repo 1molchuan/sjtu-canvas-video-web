@@ -3,31 +3,37 @@
 ## 数据流
 
 ```text
+代理模式：
 用户点击轨道下载
   → POST .../ticket（同源 Cookie + 内存 CSRF）
-  → { download_url, expires_in_seconds }
   → 创建临时 <a href="download_url">
-  → 浏览器原生导航/下载
-  → GET /api/download/:ticket（浏览器自动携带 Session Cookie）
-  → 默认由 Axum 按 Range 流式代理上游
+  → Axum 按 Range 流式代理上游
+
+直连实验模式：
+用户点击轨道下载
+  → 立即调用系统“另存为”（保留用户手势）
+  → POST .../ticket（同源 Cookie + 内存 CSRF）
+  → fetch(download_url) 跟随受控 307
+  → Response.body.pipeTo(本地文件 WritableStream)
+  → 视频 body 从交大视频源直接到用户浏览器
 ```
 
-前端不会用 `fetch()` 读取视频 body，不调用 `response.blob()`，不使用 IndexedDB、Cache API、Service Worker 或前端视频缓存。这样浏览器与后端可以保留原生 Range、暂停、续传和取消语义，也不会把完整录像放进 JavaScript heap。
+代理模式不会用 `fetch()` 读取视频 body。直连实验模式会读取流，但只通过 `pipeTo()` 将分块响应写入用户明确选择的文件；两种模式都不调用 `response.blob()`，不使用 IndexedDB、Cache API、Service Worker 或前端视频缓存，也不会把完整录像放进 JavaScript heap。
 
 ## Ticket
 
 `download_url` 是 60 秒内存能力值，但只知道 URL仍不能下载：请求还必须带同一网站 Session Cookie。ticket 固定绑定 Session、课程、录像、轨道、服务端登记的上游资源和安全文件名；它不编码上游 URL。
 
-实验性的 `redirect_experimental` 服务端模式不改变前端流程，但下载端点会返回 `307`，使浏览器直接访问短期上游 URL。该 URL会进入浏览器网络边界，且服务器无法继续控制 Range、文件名和并发；默认配置不会启用。风险与探测方法见 `direct-download-experiment.md`。
+实验性的 `redirect_experimental` 服务端模式通过 Session API声明 `direct_stream`。前端先打开系统文件选择器，再签发 ticket 并流式写入文件。短期上游 URL会进入浏览器网络边界，服务器不承载视频 body，且无法继续控制源站响应与传输并发。该模式不支持 File System Access API时会明确报错，不会静默回退到服务器代理。风险与探测方法见 `direct-download-experiment.md`。
 
 前端只短暂持有 ticket：
 
 - 不显示、不复制、不写日志；
 - 不进入 localStorage、sessionStorage 或 analytics；
-- anchor click 后立即从 DOM 删除；
+- 代理模式的 anchor click 后立即从 DOM 删除；直连模式不创建 anchor；
 - `410` 时允许用户重新点击以签发新 ticket，不复用旧值；
 - `429` 显示已有下载正在进行，不伪造排队或进度；
-- 只提示“下载已开始”，不声明无法观测的精确百分比。
+- 代理模式只提示“下载已开始”；直连模式只提示进行中或完成，不伪造精确百分比。
 
 ## Range 与响应
 

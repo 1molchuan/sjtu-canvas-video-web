@@ -100,12 +100,15 @@ session, sets the configured session cookie, and clears the pending cookie. With
     "identity_source": "canvas"
   },
   "csrf_token": "session-bound-random-token",
-  "expires_at": "2030-01-01T00:00:00Z"
+  "expires_at": "2030-01-01T00:00:00Z",
+  "download_delivery": "native_navigation"
 }
 ```
 
-The response never contains a stable ID, account, name, upstream cookie, LTI token, video token, or
-source URL. An expired session returns `401 SESSION_EXPIRED`.
+`download_delivery` is either `native_navigation` for the server proxy or `direct_stream` for the
+explicit direct experiment. It contains no resource identifier. The response never contains a stable
+ID, account, name, upstream cookie, LTI token, video token, or source URL. An expired session returns
+`401 SESSION_EXPIRED`.
 
 ### `GET /api/me`
 

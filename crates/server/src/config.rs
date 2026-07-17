@@ -56,6 +56,15 @@ pub enum DownloadDelivery {
     RedirectExperimental,
 }
 
+impl DownloadDelivery {
+    pub const fn browser_mode(self) -> &'static str {
+        match self {
+            Self::Proxy => "native_navigation",
+            Self::RedirectExperimental => "direct_stream",
+        }
+    }
+}
+
 #[derive(Clone, Deserialize)]
 pub struct AuthConfig {
     #[serde(default)]

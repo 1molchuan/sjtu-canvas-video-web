@@ -22,6 +22,7 @@ export const sessionResponseSchema = z.discriminatedUnion("authenticated", [
     user: sessionUserSchema,
     csrf_token: z.string().min(1),
     expires_at: z.iso.datetime({ offset: true }),
+    download_delivery: z.enum(["native_navigation", "direct_stream"]),
   }),
 ]);
 

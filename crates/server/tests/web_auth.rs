@@ -41,6 +41,10 @@ async fn qr_login_uses_pending_cookie_then_rotates_to_session_cookie() {
     .await;
     assert_eq!(session.status(), StatusCode::OK);
     assert_session_cookie_is_secure(&session, &pending_cookie);
+    assert_eq!(
+        response_json(session).await["download_delivery"],
+        "native_navigation"
+    );
 }
 
 #[tokio::test]
