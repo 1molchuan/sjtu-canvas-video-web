@@ -9,7 +9,7 @@
   → 创建临时 <a href="download_url">
   → 浏览器原生导航/下载
   → GET /api/download/:ticket（浏览器自动携带 Session Cookie）
-  → Axum 按 Range 流式代理上游
+  → 默认由 Axum 按 Range 流式代理上游
 ```
 
 前端不会用 `fetch()` 读取视频 body，不调用 `response.blob()`，不使用 IndexedDB、Cache API、Service Worker 或前端视频缓存。这样浏览器与后端可以保留原生 Range、暂停、续传和取消语义，也不会把完整录像放进 JavaScript heap。
@@ -17,6 +17,8 @@
 ## Ticket
 
 `download_url` 是 60 秒内存能力值，但只知道 URL仍不能下载：请求还必须带同一网站 Session Cookie。ticket 固定绑定 Session、课程、录像、轨道、服务端登记的上游资源和安全文件名；它不编码上游 URL。
+
+实验性的 `redirect_experimental` 服务端模式不改变前端流程，但下载端点会返回 `307`，使浏览器直接访问短期上游 URL。该 URL会进入浏览器网络边界，且服务器无法继续控制 Range、文件名和并发；默认配置不会启用。风险与探测方法见 `direct-download-experiment.md`。
 
 前端只短暂持有 ticket：
 

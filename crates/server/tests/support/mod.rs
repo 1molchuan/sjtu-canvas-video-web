@@ -90,6 +90,7 @@ pub struct TestHarness {
 
 #[derive(Clone, Copy)]
 pub struct HarnessOptions {
+    pub direct_downloads: bool,
     pub max_global_downloads: usize,
     pub max_downloads_per_user: usize,
     pub ticket_ttl_seconds: u64,
@@ -119,6 +120,7 @@ pub enum GatewayMode {
 impl Default for HarnessOptions {
     fn default() -> Self {
         Self {
+            direct_downloads: false,
             max_global_downloads: 4,
             max_downloads_per_user: 1,
             ticket_ttl_seconds: 60,

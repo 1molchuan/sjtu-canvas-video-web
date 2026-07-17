@@ -42,4 +42,7 @@ pub struct CourseArgs {
 
     #[arg(long)]
     pub video_id: Option<String>,
+
+    #[arg(long)]
+    pub probe_direct: bool,
 }

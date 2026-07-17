@@ -1,7 +1,7 @@
 use canvas_core::{
     canvas::{CanvasCourse, CanvasSessionStatus, UserIdentity},
     redaction::Redactor,
-    video::{CanvasVideo, VideoTrack},
+    video::{CanvasVideo, RangeProbeResult, VideoTrack},
 };
 use qrcode::{QrCode, render::unicode};
 use secrecy::{ExposeSecret, SecretString};
@@ -62,6 +62,18 @@ impl Output {
     pub fn tracks(&self, tracks: &[VideoTrack]) -> Result<(), CliError> {
         eprintln!("{}", format_track_summary(tracks, &self.redactor)?);
         Ok(())
+    }
+
+    pub fn direct_probe(&self, result: Option<&RangeProbeResult>) {
+        match result {
+            Some(probe) => eprintln!(
+                "直连兼容探测：accessible={} status={} supports_range={}",
+                matches!(probe.status, 200 | 206),
+                probe.status,
+                probe.supports_range
+            ),
+            None => eprintln!("直连兼容探测：accessible=false result=rejected_or_unavailable"),
+        }
     }
 
     pub fn report(&self, report: &ValidationReport) -> Result<(), CliError> {

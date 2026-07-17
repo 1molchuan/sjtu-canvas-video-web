@@ -10,13 +10,14 @@ use time::OffsetDateTime;
 use tokio::sync::Semaphore;
 
 use crate::{
+    config::DownloadDelivery,
     error::WebError,
     middleware::session::AuthenticatedSession,
     session::UserSession,
     state::AppState,
     stream::{
-        ByteRange, DownloadPermits, ProxyOptions, RangeParseError, parse_single_range,
-        proxy_download,
+        ByteRange, DownloadPermits, ProxyOptions, RangeParseError, direct_download_redirect,
+        parse_single_range, proxy_download,
     },
     ticket::{DownloadTicket, DownloadTicketId, TicketLookupError},
 };
@@ -37,6 +38,9 @@ async fn download(
     let range = requested_range(&headers)?;
     let ticket = resolve_ticket(&state, &session, &raw_ticket)?;
     verify_resource_binding(&session, &ticket).await?;
+    if state.config().server.download_delivery == DownloadDelivery::RedirectExperimental {
+        return direct_download_redirect(session.protocol(), ticket.resource()).await;
+    }
     let permits = acquire_permits(
         state.global_download_semaphore(),
         session.download_semaphore(),

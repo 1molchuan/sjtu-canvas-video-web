@@ -8,6 +8,8 @@ shutdown_grace_seconds = 15
 session_ttl_hours = 8
 pending_login_ttl_minutes = 5
 download_ticket_ttl_seconds = 60
+# Keep proxy mode unless explicitly testing short-lived upstream redirects.
+download_delivery = "proxy"
 max_global_downloads = 4
 max_downloads_per_user = 1
 max_pending_logins = 20

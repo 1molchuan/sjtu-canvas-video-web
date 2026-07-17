@@ -19,6 +19,7 @@ fn full_command_accepts_required_phase_one_flags() {
         "42",
         "--video-id",
         "video-1",
+        "--probe-direct",
     ])
     .expect("valid CLI should parse");
 
@@ -31,6 +32,7 @@ fn full_command_accepts_required_phase_one_flags() {
     };
     assert_eq!(args.course_id, 42);
     assert_eq!(args.video_id.as_deref(), Some("video-1"));
+    assert!(args.probe_direct);
 }
 
 #[test]

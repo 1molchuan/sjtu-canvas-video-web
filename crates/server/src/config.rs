@@ -30,6 +30,8 @@ pub struct ServerConfig {
     pub session_ttl_hours: u64,
     pub pending_login_ttl_minutes: u64,
     pub download_ticket_ttl_seconds: u64,
+    #[serde(default)]
+    pub download_delivery: DownloadDelivery,
     pub max_global_downloads: usize,
     pub max_downloads_per_user: usize,
     pub max_pending_logins: usize,
@@ -44,6 +46,14 @@ pub struct ServerConfig {
 pub enum DeploymentMode {
     Development,
     Production,
+}
+
+#[derive(Debug, Default, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DownloadDelivery {
+    #[default]
+    Proxy,
+    RedirectExperimental,
 }
 
 #[derive(Clone, Deserialize)]

@@ -177,6 +177,7 @@ public_origin = "{PUBLIC_ORIGIN}"
 session_ttl_hours = 8
 pending_login_ttl_minutes = 5
 download_ticket_ttl_seconds = {}
+download_delivery = "{}"
 max_global_downloads = {}
 max_downloads_per_user = {}
 max_pending_logins = 20
@@ -194,7 +195,14 @@ same_site = "Lax"
 csrf_header = "X-CSRF-Token"
 trust_proxy_headers = false
 "#,
-        options.ticket_ttl_seconds, options.max_global_downloads, options.max_downloads_per_user,
+        options.ticket_ttl_seconds,
+        if options.direct_downloads {
+            "redirect_experimental"
+        } else {
+            "proxy"
+        },
+        options.max_global_downloads,
+        options.max_downloads_per_user,
     );
     toml::from_str(&source).expect("test config")
 }

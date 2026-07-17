@@ -32,12 +32,27 @@ pub async fn probe_video_track(
     context: &ProtocolContext,
     track: &VideoTrack,
 ) -> Result<RangeProbeResult, ProtocolError> {
+    probe_video_track_with_referer(context, track, Some(VIDEO_DOWNLOAD_REFERER)).await
+}
+
+pub async fn probe_video_track_without_referer(
+    context: &ProtocolContext,
+    track: &VideoTrack,
+) -> Result<RangeProbeResult, ProtocolError> {
+    probe_video_track_with_referer(context, track, None).await
+}
+
+async fn probe_video_track_with_referer(
+    context: &ProtocolContext,
+    track: &VideoTrack,
+    referer: Option<&str>,
+) -> Result<RangeProbeResult, ProtocolError> {
     let mut target = Url::parse(track.upstream_url.expose_secret())
         .map_err(|_| ProtocolError::RangeProbeFailed)?;
     for _ in 0..=MAX_PROBE_REDIRECTS {
         validate_upstream_url(&target, UpstreamPurpose::VideoContent, &context.policy)?;
         validate_resolved_address(context, &target).await?;
-        let response = send_probe(context, &target).await?;
+        let response = send_probe(context, &target, referer).await?;
         if response.status().is_redirection() {
             target = redirect_target(&response, &target, context)?;
             continue;
@@ -47,13 +62,21 @@ pub async fn probe_video_track(
     Err(ProtocolError::RangeProbeFailed)
 }
 
-async fn send_probe(context: &ProtocolContext, target: &Url) -> Result<Response, ProtocolError> {
-    context
+async fn send_probe(
+    context: &ProtocolContext,
+    target: &Url,
+    referer: Option<&str>,
+) -> Result<Response, ProtocolError> {
+    let request = context
         .stateless_client
         .get(target.clone())
         .header(RANGE, "bytes=0-0")
-        .header(REFERER, VIDEO_DOWNLOAD_REFERER)
-        .header(ACCEPT_ENCODING, "identity")
+        .header(ACCEPT_ENCODING, "identity");
+    let request = match referer {
+        Some(value) => request.header(REFERER, value),
+        None => request,
+    };
+    request
         .send()
         .await
         .map_err(|_| ProtocolError::RangeProbeFailed)

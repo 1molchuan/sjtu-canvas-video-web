@@ -2,7 +2,7 @@
 
 ## Data path and non-goals
 
-The only supported path is:
+The default and recommended path is:
 
 ```text
 authorized video detail
@@ -15,6 +15,12 @@ authorized video detail
 The API has no arbitrary-URL endpoint. A browser cannot supply a source URL, Referer, upstream host,
 filename, Canvas course ID, video-system ID, or authorization token. The server never writes a complete
 or partial video to disk and does not cache the response body.
+
+An explicit `redirect_experimental` delivery mode exists only for bandwidth compatibility testing. It
+keeps ticket and ownership validation but returns the registered short-lived source URL in a `307`
+response. This deliberately weakens URL confidentiality and bypasses proxy header, concurrency, and
+stream-lifecycle controls. It is documented separately in `direct-download-experiment.md` and defaults
+to off.
 
 ## Ticket binding
 
@@ -110,4 +116,6 @@ Mock Web tests cover GET `200`, GET `206`, upstream `416`, HEAD, closed/open/suf
 and multiple ranges, header filtering, filename injection, malicious redirects, ticket/session mismatch,
 ticket expiry, logout invalidation, global/per-user limits, permit release after errors and body drop,
 source interruption, shutdown cancellation, and a delayed stream proving no whole-body buffering or
-short total timeout. Mock requests never contact SJTU services.
+short total timeout. They also verify that explicit direct mode returns `307` only after Session and
+resource binding checks and that default proxy mode remains unchanged. Mock requests never contact SJTU
+services.

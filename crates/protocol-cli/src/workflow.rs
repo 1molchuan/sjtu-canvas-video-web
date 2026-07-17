@@ -8,6 +8,7 @@ use canvas_core::{
     client::{ProtocolConfig, ProtocolContext},
     video::{
         VideoCatalogSession, get_video_info, list_course_videos_with_refresh, probe_video_track,
+        probe_video_track_without_referer,
     },
 };
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
@@ -180,6 +181,10 @@ impl Workflow<'_> {
                     .set_step(StepName::RangeProbe, StepStatus::Passed);
                 self.report
                     .set_video_metadata(probe.host, probe.supports_range);
+                if args.probe_direct {
+                    let direct = probe_video_track_without_referer(&self.context, track).await;
+                    self.output.direct_probe(direct.as_ref().ok());
+                }
                 Ok(())
             }
             Err(error) => {

@@ -14,7 +14,10 @@ use axum::{
 };
 use canvas_core::{
     client::ProtocolContext,
-    video::{VideoTrack, VideoTrackInput, VideoTrackKind, probe_video_track},
+    video::{
+        VideoTrack, VideoTrackInput, VideoTrackKind, probe_video_track,
+        probe_video_track_without_referer,
+    },
 };
 use secrecy::SecretString;
 
@@ -25,6 +28,7 @@ const RANGE_200: usize = 1;
 const RANGE_416: usize = 2;
 const REDIRECT_TO_VIDEO_API: usize = 3;
 const MALFORMED_206: usize = 4;
+const REQUIRE_CANVAS_REFERER: usize = 5;
 
 #[derive(Default)]
 struct RangeState {
@@ -96,6 +100,49 @@ async fn range_probe_rejects_malformed_partial_content_metadata() {
     assert!(probe_video_track(&context, &track).await.is_err());
 }
 
+#[tokio::test]
+async fn direct_probe_omits_referer_and_reports_rejection() {
+    let state = Arc::new(RangeState::default());
+    state.mode.store(REQUIRE_CANVAS_REFERER, Ordering::SeqCst);
+    let server = MockServer::spawn(router(state)).await;
+    let topology = MockTopology::for_server(&server);
+    let track = track(
+        topology
+            .video_content_origin
+            .join("content/test.mp4")
+            .expect("mock content URL is valid"),
+    );
+    let context = ProtocolContext::new(topology.config).expect("context should build");
+
+    assert!(probe_video_track(&context, &track).await.is_ok());
+    assert!(
+        probe_video_track_without_referer(&context, &track)
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test]
+async fn direct_probe_accepts_range_when_referer_is_not_required() {
+    let state = Arc::new(RangeState::default());
+    let server = MockServer::spawn(router(state)).await;
+    let topology = MockTopology::for_server(&server);
+    let track = track(
+        topology
+            .video_content_origin
+            .join("content/test.mp4")
+            .expect("mock content URL is valid"),
+    );
+    let context = ProtocolContext::new(topology.config).expect("context should build");
+
+    let result = probe_video_track_without_referer(&context, &track)
+        .await
+        .expect("referer-free Range response should be classified");
+
+    assert_eq!(result.status, 206);
+    assert!(result.supports_range);
+}
+
 fn router(state: Shared<RangeState>) -> Router {
     Router::new()
         .route("/content/test.mp4", get(content))
@@ -113,6 +160,7 @@ async fn content(State(state): State<Shared<RangeState>>, headers: HeaderMap) ->
         RANGE_200 => (StatusCode::OK, vec![0_u8; 8192]).into_response(),
         RANGE_416 => response(StatusCode::RANGE_NOT_SATISFIABLE, "bytes */8192", "0"),
         MALFORMED_206 => response(StatusCode::PARTIAL_CONTENT, "bytes 1-1/8192", "1"),
+        REQUIRE_CANVAS_REFERER => require_canvas_referer(&headers),
         REDIRECT_TO_VIDEO_API => {
             let host = headers
                 .get("host")
@@ -129,6 +177,14 @@ async fn content(State(state): State<Shared<RangeState>>, headers: HeaderMap) ->
         }
         _ => panic!("unknown Range mode"),
     }
+}
+
+fn require_canvas_referer(headers: &HeaderMap) -> Response {
+    let referer = headers.get("referer").and_then(|value| value.to_str().ok());
+    if referer == Some("https://courses.sjtu.edu.cn") {
+        return response(StatusCode::PARTIAL_CONTENT, "bytes 0-0/8192", "1");
+    }
+    StatusCode::FORBIDDEN.into_response()
 }
 
 async fn forbidden(State(state): State<Shared<RangeState>>) -> &'static str {
