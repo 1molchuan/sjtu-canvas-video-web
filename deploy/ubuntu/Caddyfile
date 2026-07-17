@@ -1,0 +1,11 @@
+canvas.1molchuan.top {
+	handle /api/download/* {
+		reverse_proxy 127.0.0.1:3100 {
+			header_up Accept-Encoding identity
+		}
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:3100
+	}
+}

@@ -10,6 +10,9 @@
 /frontend/.env.local
 /frontend/*.tsbuildinfo
 /release/
+/release-linux/
+/config/production.toml
+/.local/production-*
 /deploy/cloudflare/*.json
 *.log
 .DS_Store

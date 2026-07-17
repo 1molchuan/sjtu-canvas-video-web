@@ -1,0 +1,33 @@
+[server]
+mode = "production"
+host = "127.0.0.1"
+port = 3100
+public_origin = "https://canvas.1molchuan.top"
+frontend_dist = "/opt/canvas-video/current/frontend/dist"
+shutdown_grace_seconds = 15
+session_ttl_hours = 8
+pending_login_ttl_minutes = 5
+download_ticket_ttl_seconds = 60
+max_global_downloads = 4
+max_downloads_per_user = 1
+max_pending_logins = 20
+max_qr_starts_per_minute = 6
+api_timeout_seconds = 30
+upstream_connect_timeout_seconds = 10
+
+[auth]
+allowed_stable_ids = []
+# Replace before startup. Generate with: cargo run -p server --bin hash-stable-id
+allowed_stable_id_hashes = ["sha256:REPLACE_ME"]
+
+[cookie]
+name = "__Host-sjtu_canvas_video_session"
+secure = true
+http_only = true
+same_site = "Lax"
+path = "/"
+
+[security]
+csrf_header = "X-CSRF-Token"
+trust_proxy_headers = false
+max_request_body_bytes = 65536
