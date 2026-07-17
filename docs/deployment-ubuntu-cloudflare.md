@@ -111,6 +111,11 @@ Caddyfile 不含 `file_server`、`encode`、access log、`flush_interval -1` 或
 
 ## DNS, TLS and Cloudflare
 
+> 中国内地部署前置条件：域名必须完成 ICP 备案，并在阿里云完成接入备案。
+> 阿里云会阻断未备案域名指向中国内地服务器的访问，改用非标准端口也不能
+> 规避备案义务。安全组已放行或 Caddy 在 loopback 验证成功，均不能证明公网
+> 流量能够到达虚拟机。参见[阿里云官方说明](https://help.aliyun.com/zh/icp-filing/not-for-the-record-dns-can-access-to-different-areas)。
+
 在服务器与 Caddy 都就绪后创建 Cloudflare DNS：
 
 - Type: `A`
@@ -132,6 +137,12 @@ Cache eligibility: Bypass cache
 
 确认没有后续 Cache Everything、Edge TTL、Worker 或 Transform Rule 覆盖它。
 静态哈希 asset 可按 Axum 的 immutable header 缓存。
+
+当前实际部署位于阿里云中国内地。2026-07-17 验证发现外部 443 TLS 在虚拟机
+网卡前被重置，80 同样未到达 Caddy；Ubuntu 本机防火墙关闭、systemd/Caddy
+正常且 loopback HTTPS 证书校验通过。由于备案条件尚未满足，维护者已移除
+`canvas.1molchuan.top` 的 DNS 记录。恢复公网解析前必须先完成备案/接入备案，
+或迁移到非中国内地 origin，并重新执行全部公网验收。
 
 ## Verification and troubleshooting
 
