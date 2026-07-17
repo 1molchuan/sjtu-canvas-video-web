@@ -22,6 +22,10 @@ pub struct FlowState {
     pub stale_first_token: AtomicBool,
     pub always_stale: AtomicBool,
     pub malicious_redirect: AtomicBool,
+    pub oidc_redirect_to_canvas: AtomicBool,
+    pub oidc_redirect_to_content: AtomicBool,
+    pub oidc_second_canvas_redirect: AtomicBool,
+    pub oidc_redirect_loop: AtomicBool,
     pub missing_token_data: AtomicBool,
     pub alternate_token: AtomicBool,
     pub lti_launches: AtomicUsize,
@@ -36,6 +40,8 @@ pub fn router(state: Shared<FlowState>) -> Router {
             get(external_tool),
         )
         .route("/video/oidc/login_initiations", post(oidc))
+        .route("/lti/authorize", get(oidc_authorize))
+        .route("/lti/authorize/final", get(oidc_authorize_final))
         .route("/video/lti3/lti3Auth/ivs", post(lti_auth))
         .route("/video/lti3/getAccessTokenByTokenId", get(exchange))
         .route(
@@ -69,12 +75,46 @@ async fn external_tool(
     ))
 }
 
-async fn oidc(headers: HeaderMap, body: Bytes) -> Html<String> {
+async fn oidc(State(state): State<Shared<FlowState>>, headers: HeaderMap, body: Bytes) -> Response {
     assert_eq!(body.as_ref(), b"iss=canvas&login_hint=opaque-login-hint");
-    let action = redirect_url(&headers, "video.sjtu.mock.test", "/video/lti3/lti3Auth/ivs");
+    if state.oidc_redirect_to_canvas.load(Ordering::SeqCst) {
+        return oidc_redirect(&headers, "canvas.sjtu.mock.test", "/lti/authorize");
+    }
+    if state.oidc_redirect_to_content.load(Ordering::SeqCst) {
+        return oidc_redirect(&headers, "content.sjtu.mock.test", "/lti/authorize");
+    }
+    oidc_form(&headers).into_response()
+}
+
+async fn oidc_authorize(State(state): State<Shared<FlowState>>, headers: HeaderMap) -> Response {
+    if state.oidc_redirect_loop.load(Ordering::SeqCst) {
+        return oidc_redirect(&headers, "canvas.sjtu.mock.test", "/lti/authorize");
+    }
+    if state.oidc_second_canvas_redirect.load(Ordering::SeqCst) {
+        return oidc_redirect(&headers, "canvas.sjtu.mock.test", "/lti/authorize/final");
+    }
+    oidc_form(&headers).into_response()
+}
+
+async fn oidc_authorize_final(headers: HeaderMap) -> Html<String> {
+    oidc_form(&headers)
+}
+
+fn oidc_form(headers: &HeaderMap) -> Html<String> {
+    let action = redirect_url(headers, "video.sjtu.mock.test", "/video/lti3/lti3Auth/ivs");
     Html(format!(
         r#"<form action="{action}" method="post"><input type="hidden" name="state" value="opaque-state"><input type="hidden" name="id_token" value="opaque-id-token"></form>"#
     ))
+}
+
+fn oidc_redirect(headers: &HeaderMap, host: &str, path: &str) -> Response {
+    let location = redirect_url(headers, host, path);
+    let mut response = StatusCode::FOUND.into_response();
+    response.headers_mut().insert(
+        "location",
+        HeaderValue::from_str(&location).expect("mock redirect is valid"),
+    );
+    response
 }
 
 async fn lti_auth(

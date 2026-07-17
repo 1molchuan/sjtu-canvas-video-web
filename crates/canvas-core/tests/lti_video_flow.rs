@@ -54,6 +54,55 @@ async fn mock_lti_video_detail_and_range_chain_uses_course_bound_auth() {
 }
 
 #[tokio::test]
+async fn oidc_canvas_redirect_chain_is_followed() {
+    let state = Arc::new(FlowState::default());
+    state.oidc_redirect_to_canvas.store(true, Ordering::SeqCst);
+    state
+        .oidc_second_canvas_redirect
+        .store(true, Ordering::SeqCst);
+    let server = MockServer::spawn(router(state)).await;
+    let context = ProtocolContext::new(MockTopology::for_server(&server).config)
+        .expect("context should build");
+
+    let auth = establish_course_video_session(&context, CANVAS_COURSE_ID)
+        .await
+        .expect("validated Canvas OIDC redirect should be followed");
+
+    assert_eq!(auth.canvas_course_id, CANVAS_COURSE_ID);
+}
+
+#[tokio::test]
+async fn oidc_canvas_redirect_loop_is_bounded() {
+    let state = Arc::new(FlowState::default());
+    state.oidc_redirect_to_canvas.store(true, Ordering::SeqCst);
+    state.oidc_redirect_loop.store(true, Ordering::SeqCst);
+    let server = MockServer::spawn(router(state)).await;
+    let context = ProtocolContext::new(MockTopology::for_server(&server).config)
+        .expect("context should build");
+
+    let error = establish_course_video_session(&context, CANVAS_COURSE_ID)
+        .await
+        .expect_err("Canvas redirect loops must be bounded");
+
+    assert_eq!(error, ProtocolError::LtiRedirectInvalid);
+}
+
+#[tokio::test]
+async fn oidc_redirect_to_video_content_origin_is_rejected() {
+    let state = Arc::new(FlowState::default());
+    state.oidc_redirect_to_content.store(true, Ordering::SeqCst);
+    let server = MockServer::spawn(router(state)).await;
+    let context = ProtocolContext::new(MockTopology::for_server(&server).config)
+        .expect("context should build");
+
+    let error = establish_course_video_session(&context, CANVAS_COURSE_ID)
+        .await
+        .expect_err("OIDC redirect must target the exact Canvas origin");
+
+    assert_eq!(error, ProtocolError::LtiRedirectInvalid);
+}
+
+#[tokio::test]
 async fn expired_video_token_relaunches_lti_exactly_once() {
     let state = Arc::new(FlowState::default());
     state.stale_first_token.store(true, Ordering::SeqCst);

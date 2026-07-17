@@ -9,10 +9,14 @@ use crate::{
     error::ProtocolError,
 };
 
-use super::{FormExpectation, LtiFormKind, ParsedForm, extract_token_id, parse_lti_form};
+use super::{
+    FormExpectation, LtiFormKind, ParsedForm, diagnostics::LtiProbe, extract_token_id,
+    parse_lti_form,
+};
 
 const MAX_LTI_HTML_BYTES: usize = 2 * 1024 * 1024;
 const MAX_TOKEN_RESPONSE_BYTES: usize = 256 * 1024;
+const MAX_OIDC_CANVAS_REDIRECTS: usize = 8;
 
 #[derive(Debug)]
 pub struct CourseVideoAuth {
@@ -87,6 +91,7 @@ async fn get_html(
         .send()
         .await
         .map_err(|_| ProtocolError::ExternalToolPageFailed)?;
+    LtiProbe::external_tool().record(&response);
     html_from_response(response, ProtocolError::ExternalToolPageFailed).await
 }
 
@@ -102,7 +107,37 @@ async fn submit_for_html(
         .send()
         .await
         .map_err(|_| ProtocolError::LtiLaunchFailed)?;
+    LtiProbe::oidc_submission().record(&response);
+    if response.status().is_redirection() {
+        return follow_oidc_redirect(context, response).await;
+    }
     html_from_response(response, ProtocolError::LtiLaunchFailed).await
+}
+
+async fn follow_oidc_redirect(
+    context: &ProtocolContext,
+    initial_response: Response,
+) -> Result<String, ProtocolError> {
+    let mut response = initial_response;
+    for _ in 0..MAX_OIDC_CANVAS_REDIRECTS {
+        let target = raw_redirect_target(&response, response.url())?;
+        validate_upstream_url(&target, UpstreamPurpose::Canvas, &context.policy)
+            .map_err(|_| ProtocolError::LtiRedirectInvalid)?;
+        response = context
+            .no_redirect_client
+            .get(target)
+            .send()
+            .await
+            .map_err(|_| ProtocolError::LtiLaunchFailed)?;
+        LtiProbe::oidc_redirect().record(&response);
+        if response.status().is_success() {
+            return html_from_response(response, ProtocolError::LtiLaunchFailed).await;
+        }
+        if !response.status().is_redirection() {
+            return Err(ProtocolError::LtiLaunchFailed);
+        }
+    }
+    Err(ProtocolError::LtiRedirectInvalid)
 }
 
 async fn html_from_response(
@@ -128,6 +163,7 @@ async fn submit_for_redirect(
         .send()
         .await
         .map_err(|_| ProtocolError::LtiLaunchFailed)?;
+    LtiProbe::auth_submission().record(&response);
     if !response.status().is_redirection() {
         return Err(ProtocolError::LtiRedirectMissing);
     }
@@ -139,6 +175,13 @@ fn parse_redirect(
     base: &Url,
     context: &ProtocolContext,
 ) -> Result<Url, ProtocolError> {
+    let target = raw_redirect_target(response, base)?;
+    validate_upstream_url(&target, UpstreamPurpose::VideoApi, &context.policy)
+        .map_err(|_| ProtocolError::LtiRedirectInvalid)?;
+    Ok(target)
+}
+
+fn raw_redirect_target(response: &Response, base: &Url) -> Result<Url, ProtocolError> {
     let raw = response
         .headers()
         .get(LOCATION)
@@ -146,8 +189,6 @@ fn parse_redirect(
         .ok_or(ProtocolError::LtiRedirectMissing)?;
     let target = base
         .join(raw)
-        .map_err(|_| ProtocolError::LtiRedirectInvalid)?;
-    validate_upstream_url(&target, UpstreamPurpose::VideoApi, &context.policy)
         .map_err(|_| ProtocolError::LtiRedirectInvalid)?;
     Ok(target)
 }
@@ -166,6 +207,7 @@ async fn exchange_token(
         .send()
         .await
         .map_err(|_| ProtocolError::VideoTokenExchangeFailed)?;
+    LtiProbe::token_exchange().record(&response);
     if !response.status().is_success() {
         return Err(ProtocolError::VideoTokenExchangeFailed);
     }

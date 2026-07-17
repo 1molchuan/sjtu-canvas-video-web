@@ -1,3 +1,4 @@
+mod diagnostics;
 mod form;
 mod launch;
 mod token_id;
