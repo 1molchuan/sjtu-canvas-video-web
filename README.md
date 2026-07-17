@@ -6,10 +6,10 @@ the origin must listen only on `127.0.0.1`.
 
 ## Current status
 
-Phase 1 protocol code and the validation CLI are implemented. The complete protocol chain is covered
-by deterministic local mocks, but no real jAccount scan or SJTU request was performed during this
-implementation pass. There is intentionally still no React frontend, browser session, ticket, or
-download proxy.
+Phase 1 protocol code and the validation CLI are implemented. Phase 1.5 completed a user-initiated
+real SJTU run on 2026-07-17: QR login, Canvas Cookie course discovery, LTI authorization, video list,
+video detail, multi-track parsing, and a one-byte Range probe all passed. There is intentionally still
+no React frontend, browser session, ticket, or download proxy.
 
 | Evidence class | Status |
 | --- | --- |
@@ -17,14 +17,16 @@ download proxy.
 | Local unit and contract tests | Passed on 2026-07-17 |
 | Local runtime health check | Passed with listener ownership confirmed on `127.0.0.1` |
 | Mock protocol integration tests | Passed, including UUID-to-Range full chain |
-| Real local jAccount/Canvas/LTI validation | not_run |
-| Cookie-only Canvas course discovery | Go/No-Go unresolved |
+| Real local jAccount/Canvas/LTI validation | Passed with explicit real-test gate |
+| Cookie-only Canvas course discovery | Passed without a Personal Access Token |
+| Real video detail and one-byte Range probe | Passed; full video was not downloaded |
 | Mac mini / Cloudflare deployment | Not performed |
 
 The reference desktop application uses a manually configured Canvas Personal Access Token for
-`/api/v1/users/self` and `/api/v1/courses`. Its QR-created Canvas Web session is used for the course
-video LTI flow, but its source does not prove that the same Cookie session can list courses. This is
-the first Phase 1 validation gate; the web application will not silently request a Canvas token.
+`/api/v1/users/self` and `/api/v1/courses`. The real Phase 1.5 experiment established that the current
+Canvas Cookie session can call `/api/v1/courses` without a Bearer token. Some returned entries omit
+display fields, so the parser preserves those authorized entries with empty optional display data.
+The web application will not request a Canvas Personal Access Token.
 
 ## Current layout
 
@@ -91,11 +93,13 @@ $env:SJTU_CANVAS_CONFIG = "config/example.toml"
 cargo run -p server
 ```
 
-The example allowlist contains a non-user placeholder. Phase 1 must identify and document a stable
-jAccount identifier before any real user can be allowed.
+The example allowlist contains a non-user placeholder. Real validation obtained a stable numeric
+Canvas identity from the authenticated self endpoint; only a hash was printed or recorded. The formal
+server must compare the underlying stable value in memory and must never use a display name.
 
-The current workspace is verified with Rust `1.97.1`. Mock success is not recorded as real endpoint
-success; all real steps remain `not_run` in [the validation record](docs/protocol-validation.md).
+The current workspace and real validation used Rust `1.97.1`. Mock and real evidence remain listed
+separately in [the validation record](docs/protocol-validation.md). The sanitized local report is
+ignored by Git and contains no account, course, video, Cookie, token, path, or query value.
 
 ## Security posture
 

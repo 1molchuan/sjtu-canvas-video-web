@@ -88,8 +88,10 @@ reference analysis is not yet a production allowlist.
   and stateless video-content client. No Cookie Store or course token is global.
 - A potentially broad upstream `JAAuthCookie` is removed before host-only copies are installed for
   jAccount and mySJTU. Mock tests prove it is absent on Canvas and video-content requests.
-- Canvas SSO follows only exact Canvas, jAccount, and mySJTU origins. LTI actions and Locations are
-  exact Video API origins. Range redirects must remain VideoContent origins.
+- Canvas SSO follows only exact Canvas, jAccount, and mySJTU origins. The OIDC POST uses a
+  redirect-disabled client and follows at most eight individually validated redirects on the exact
+  Canvas origin. LTI form actions and the final token-bearing Location remain exact Video API origins.
+  Range redirects must remain VideoContent origins.
 - Production URL policy requires the secure scheme, exact host, no userinfo, no IP literal, and the
   standard HTTPS port. Video DNS results are rejected if any result is loopback, private, link-local,
   multicast, unspecified, carrier-grade NAT, benchmarking, mapped-private IPv4, or reserved.
@@ -104,3 +106,21 @@ reference analysis is not yet a production allowlist.
 
 These are protocol-validation controls, not the Phase 3 browser security boundary. There is still no
 browser session, CSRF middleware, ticket endpoint, download proxy, rate limit, or production UI.
+
+## Phase 1.5 real-environment evidence
+
+On 2026-07-17, an explicitly gated run using the user's own authorized account confirmed the backend
+QR flow, Canvas SSO, stable Canvas identity source, Cookie-only course discovery, bounded OIDC/LTI
+flow, course-bound video token, video details, and an HTTPS source on `live.sjtu.edu.cn`. The probe sent
+only `Range: bytes=0-0`, consumed no full recording, and wrote no video data.
+
+The run exposed two safe compatibility differences: duplicate copies of the same UUID in the UUID
+page, and missing display fields in some authorized Canvas course entries. It also confirmed that OIDC
+uses a Canvas redirect chain. Regression tests preserve strict distinct-UUID rejection, tolerate only
+missing display metadata, validate every redirect host, reject redirect loops after eight hops, and
+reject cross-purpose hosts.
+
+The generated `.local/protocol-report.json` contains step statuses, Go/No-Go, source host, and Range
+support only. It is ignored by Git and was scanned for forbidden identity, Cookie, token, course,
+video, path, and query fields. This evidence covers one account, one authorized course, and one
+selected track; it does not reduce the need for per-user isolation or Phase 3 browser controls.

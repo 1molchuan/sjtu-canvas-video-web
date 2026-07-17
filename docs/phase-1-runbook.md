@@ -123,3 +123,19 @@ Remove-Item -LiteralPath .local -Recurse -Force
 
 真实页面或接口发生变化时，应提交脱敏的“缺失字段名/错误类别”，不要提交完整响应来换取
 临时兼容。
+
+## 8. 2026-07-17 Phase 1.5 实际验证记录
+
+本次验证在 Windows、Rust 1.97.1 下执行。真实测试门控已显式设置，二维码由用户本人扫描，
+课程 ID 来自用户本人能够打开的 Canvas 课程 URL；仓库和文档均不保留具体值。
+
+实际结果：jAccount UUID、WebSocket、QR、express login、Canvas login、稳定身份、Cookie-only
+课程发现、LTI、录像列表、录像详情、轨道和 Range probe 全部 `passed`，判定为 `go_a`。
+课程接口在不发送 Bearer token 时返回 JSON 课程数组；身份来源为 Canvas authenticated-self
+响应；视频源 host 为 `live.sjtu.edu.cn`；`bytes=0-0` 探测确认支持 Range。未下载完整视频，
+也未测试移除 Referer 后的行为。
+
+真实环境要求两项兼容修复：课程数组中的部分条目缺少显示字段；OIDC 首次 POST 后经过
+Canvas 同源重定向链。实现对显示字段使用明确缺省值，并通过 redirect-disabled client 手动
+处理最多八跳的精确 Canvas origin；循环、跨用途 host 和缺失 Location 均继续失败。对应
+Mock 回归测试必须在后续变更中保持通过。

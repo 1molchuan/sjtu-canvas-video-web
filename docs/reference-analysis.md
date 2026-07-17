@@ -156,19 +156,19 @@ The new download path differs deliberately:
 - The body is streamed without a complete memory buffer or disk file. Cancellation releases both
   global and per-user semaphore permits.
 
-## Hard-coded endpoints requiring Phase 1 verification
+## Hard-coded endpoint runtime verification
 
 | Source assumption | Pinned-source purpose | Runtime status |
 | --- | --- | --- |
-| `my.sjtu.edu.cn/ui/appmyinfo` | UUID HTML | Unverified |
-| `my.sjtu.edu.cn/api/account` | jAccount session probe / possible identity | Unverified |
-| `jaccount.sjtu.edu.cn/jaccount/sub/{uuid}` | QR WebSocket | Unverified |
-| `jaccount.sjtu.edu.cn/jaccount/expresslogin` | `JAAuthCookie` establishment | Unverified |
-| `oc.sjtu.edu.cn/login/openid_connect` | Canvas Web login | Unverified |
-| Canvas `external_tools/8329` | video LTI launch | Unverified |
-| `v.sjtu.edu.cn/jy-application-canvas-sjtu/...` | LTI/token/list/details APIs | Unverified |
-| `live.sjtu.edu.cn/vod/...` | inferred recording source host | Unverified |
-| Referer `https://courses.sjtu.edu.cn` | source download requirement | Unverified |
+| `my.sjtu.edu.cn/ui/appmyinfo` | UUID HTML | Real run passed |
+| `my.sjtu.edu.cn/api/account` | jAccount session probe / possible identity | Not selected; identity came from Canvas self |
+| `jaccount.sjtu.edu.cn/jaccount/sub/{uuid}` | QR WebSocket | Real run passed |
+| `jaccount.sjtu.edu.cn/jaccount/expresslogin` | `JAAuthCookie` establishment | Real run passed |
+| `oc.sjtu.edu.cn/login/openid_connect` | Canvas Web login | Real run passed |
+| Canvas `external_tools/8329` | video LTI launch | Real run passed; value may still change |
+| `v.sjtu.edu.cn/jy-application-canvas-sjtu/...` | LTI/token/list/details APIs | Real API family passed |
+| `live.sjtu.edu.cn/vod/...` | inferred recording source host | Host and one-byte Range probe passed |
+| Referer `https://courses.sjtu.edu.cn` | source download requirement | Request passed; necessity not tested |
 
 ## Phase 1 extraction boundary
 
@@ -181,14 +181,15 @@ The extracted implementation is split across `canvas-core::jaccount`, `canvas-co
 Store. LTI form fields remain an ordered vector so duplicate names survive encoding, redirects are
 validated before following, and `tokenId`, course tokens, and track URLs use secret wrappers.
 
-The reference values `external_tools/8329`, the `v.sjtu.edu.cn` API paths,
-`live.sjtu.edu.cn`, and Referer `https://courses.sjtu.edu.cn` are still **source-derived candidates**.
-Mock coverage confirms our implementation uses them consistently; it does not prove they remain live
-or complete. A real run may reveal protocol drift or additional CDN hosts, which must be reviewed and
-added explicitly rather than accepted by suffix matching.
+Phase 1.5 confirmed `external_tools/8329`, the current `v.sjtu.edu.cn` API family,
+`live.sjtu.edu.cn`, and a Range request using Referer `https://courses.sjtu.edu.cn` for one authorized
+course. It also showed that the first OIDC submission redirects through a bounded same-origin Canvas
+authorization chain before returning the LTI authorization form.
 
-No allowlist should be finalized solely from this table. Phase 1 records actual redirect and video
-hosts without logging paths, query strings, tokens, or personal data.
+This is dated compatibility evidence, not a suffix allowlist or permanence guarantee. Any future host
+or endpoint change must be confirmed from a normal authorized flow and added explicitly. The real run
+recorded only hosts, status/type structure, and counts; it did not retain paths, queries, tokens,
+course/video identifiers, or personal data.
 
 ## Reuse and MIT compliance
 
