@@ -200,3 +200,15 @@ PPT, AI, JBox, ffmpeg, Canvas assignments, MCP, and desktop configuration are no
 The new code is independently structured for multi-user Web security. Because protocol work is
 derived from the MIT project and future phases may adapt small implementation portions, the original
 copyright and complete MIT text are retained in `THIRD_PARTY_NOTICES.md`.
+
+## Phase 2 extraction boundary
+
+The formal Web server continues to call the independently structured `canvas-core` modules. It does not
+reuse the reference application's shared Cookie Jar, global course token, browser-side jAccount
+WebSocket, persisted desktop configuration, download workers, local proxy, or filesystem output.
+
+Phase 2 adds new code specific to a multi-user Web boundary: pending browser binding, SSE event history,
+stable-identity whitelist, random website sessions, CSRF, opaque course/video/track handles, server-side
+download tickets, exact-host revalidation, semaphore ownership, response-header filtering, and streaming
+cancellation. These mechanisms are not represented as behavior inherited from the reference desktop
+application.

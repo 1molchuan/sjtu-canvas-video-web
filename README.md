@@ -1,125 +1,170 @@
 # SJTU Canvas Video Web
 
-Private, browser-based access to course recordings that a signed-in SJTU Canvas user is already
-authorized to view. The intended production host is a Mac mini reachable through Cloudflare Tunnel;
-the origin must listen only on `127.0.0.1`.
+Private, browser-based access to recordings that a signed-in SJTU Canvas user is already authorized to
+view. The intended production origin is a Mac mini reached through Cloudflare Tunnel; the Axum process
+must listen only on `127.0.0.1`.
 
-## Current status
+## Status
 
-Phase 1 protocol code and the validation CLI are implemented. Phase 1.5 completed a user-initiated
-real SJTU run on 2026-07-17: QR login, Canvas Cookie course discovery, LTI authorization, video list,
-video detail, multi-track parsing, and a one-byte Range probe all passed. There is intentionally still
-no React frontend, browser session, ticket, or download proxy.
+Phase 1 and Phase 1.5 are complete. A user-initiated real run on Windows with Rust 1.97.1 verified the
+full protocol chain on 2026-07-17:
 
-| Evidence class | Status |
-| --- | --- |
-| Reference source review | Completed against commit `b5d895a` |
-| Local unit and contract tests | Passed on 2026-07-17 |
-| Local runtime health check | Passed with listener ownership confirmed on `127.0.0.1` |
-| Mock protocol integration tests | Passed, including UUID-to-Range full chain |
-| Real local jAccount/Canvas/LTI validation | Passed with explicit real-test gate |
-| Cookie-only Canvas course discovery | Passed without a Personal Access Token |
-| Real video detail and one-byte Range probe | Passed; full video was not downloaded |
-| Mac mini / Cloudflare deployment | Not performed |
+```text
+jAccount QR → express login → Canvas Cookie session → course discovery
+→ OIDC/LTI → video list → video detail/tracks → one-byte Range probe
+```
 
-The reference desktop application uses a manually configured Canvas Personal Access Token for
-`/api/v1/users/self` and `/api/v1/courses`. The real Phase 1.5 experiment established that the current
-Canvas Cookie session can call `/api/v1/courses` without a Bearer token. Some returned entries omit
-display fields, so the parser preserves those authorized entries with empty optional display data.
-The web application will not request a Canvas Personal Access Token.
+That run used the user's own account and one course they could already open. Cookie-only Canvas course
+discovery succeeded without a Personal Access Token. No account, course, video, Cookie, token, path,
+query, or complete recording was retained.
 
-## Current layout
+Phase 2 implements the formal Axum backend: browser-bound QR pending state and SSE, an allowlisted
+website session, CSRF and Origin checks, opaque course/video/track handles, session-bound download
+tickets, strict single-Range streaming, concurrency limits, cleanup, security headers, and graceful
+shutdown. The complete Web layer is covered by Mock integration tests; real Web backend acceptance is
+recorded separately from the already completed real protocol validation.
+
+There is intentionally no React frontend yet. Phase 2 also contains no video player, cache, database,
+object storage, full-video disk write, subtitles, PPT, AI summary, batch download, PAT input, deployment
+automation, or public proxy.
+
+## Repository layout
 
 ```text
 .
 ├── crates/
-│   ├── canvas-core/       # injectable HTTP/WebSocket/Canvas/LTI/video protocol core; no Axum
-│   ├── protocol-cli/      # explicitly gated interactive Phase 1 validator
-│   └── server/            # loopback-only config validation and /api/health
-├── config/example.toml
+│   ├── canvas-core/       # injectable jAccount/Canvas/LTI/video protocol; no Axum
+│   ├── protocol-cli/      # explicitly gated real-protocol validator
+│   └── server/            # formal Axum session/API/streaming backend
+├── config/example.toml    # safe production-shaped example; no real user data
 ├── docs/
-│   ├── reference-analysis.md
-│   ├── protocol-validation.md
+│   ├── api.md
+│   ├── download-proxy-security.md
 │   ├── phase-1-runbook.md
-│   └── security-model.md
-├── frontend/              # Phase 4 boundary only
-├── deploy/                # Phase 5 boundary only
-├── research_sjtu_canvas_helper/
-│   └── research_plan.md   # reproducible Phase 0 research plan
-└── tests/                 # reserved for later repository-wide integration tests
+│   ├── phase-2-backend.md
+│   ├── protocol-validation.md
+│   ├── reference-analysis.md
+│   ├── security-model.md
+│   └── web-session-model.md
+├── frontend/              # reserved for the later React phase
+├── deploy/                # reserved for the deployment phase
+└── THIRD_PARTY_NOTICES.md
 ```
 
-The shallow reference clone under `research_sjtu_canvas_helper/SJTU-Canvas-Helper/` is ignored by
-Git. The permanent evidence and attribution live in `docs/` and `THIRD_PARTY_NOTICES.md`.
+The ignored reference clone under `research_sjtu_canvas_helper/SJTU-Canvas-Helper/` is research input,
+not a runtime dependency. Attribution and the upstream MIT text are retained in
+`THIRD_PARTY_NOTICES.md`.
 
-## Build, mock-test, and run the validator
+## Automated verification
 
-Requirements: rustup with the toolchain pinned by `rust-toolchain.toml`. No SJTU credentials are
-needed for automated tests.
+The workspace is pinned by `rust-toolchain.toml`. Mock tests require no SJTU account and never contact
+real university services:
 
 ```bash
-cargo fmt --check
+cargo fmt --all -- --check
 cargo check --workspace --all-targets
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-targets
 cargo test -p canvas-core --test full_mock_protocol
+cargo test -p server --tests
 ```
 
-Real protocol commands are disabled unless the operator explicitly sets
-`SJTU_REAL_PROTOCOL_TEST=1`. The course ID must come from a Canvas course URL that the operator can
-already open; the CLI never enumerates IDs:
+## Protocol validator
 
-```bash
-export SJTU_REAL_PROTOCOL_TEST=1
+Real commands are disabled unless the operator explicitly sets `SJTU_REAL_PROTOCOL_TEST=1`. A supplied
+course ID must come from a Canvas course URL the operator can already open; the CLI never enumerates
+IDs.
+
+PowerShell:
+
+```powershell
+$env:SJTU_REAL_PROTOCOL_TEST = "1"
 cargo run -p protocol-cli -- login
 cargo run -p protocol-cli -- discover-courses
 cargo run -p protocol-cli -- full --course-id 12345
 ```
 
-`full` writes only a sanitized `.local/protocol-report.json`, which is ignored by Git. See the
-[Phase 1 runbook](docs/phase-1-runbook.md) before any real scan.
-
-Run the health-only server on macOS/Linux:
+macOS/Linux:
 
 ```bash
-SJTU_CANVAS_CONFIG=config/example.toml cargo run -p server
-curl http://127.0.0.1:3000/api/health
+export SJTU_REAL_PROTOCOL_TEST=1
+cargo run -p protocol-cli -- login
 ```
 
-PowerShell:
+The `full` command writes only a sanitized, Git-ignored `.local/protocol-report.json`. See
+`docs/phase-1-runbook.md` before scanning.
+
+## Run the Phase 2 backend
+
+Copy `config/example.toml` to the Git-ignored `config/local.toml`, replace the placeholder with a private
+stable-identity hash, and keep production settings loopback-only with a Secure `__Host-` cookie. The
+protocol CLI prints a deterministic `whitelist_hash=sha256:...` after authenticated identity discovery
+without printing the stable ID itself. A stdin-only helper is also available:
 
 ```powershell
-$env:SJTU_CANVAS_CONFIG = "config/example.toml"
+$stableId = Read-Host "Stable ID" -MaskInput
+$stableId | cargo run -q -p server --bin hash-stable-id
+Remove-Variable stableId
+```
+
+The production server also requires the explicit real-protocol gate:
+
+```powershell
+$env:SJTU_REAL_PROTOCOL_TEST = "1"
+$env:SJTU_CANVAS_CONFIG = "config/local.toml"
+$env:RUST_LOG = "server=info,canvas_core=info"
 cargo run -p server
 ```
 
-The example allowlist contains a non-user placeholder. Real validation obtained a stable numeric
-Canvas identity from the authenticated self endpoint; only a hash was printed or recorded. The formal
-server must compare the underlying stable value in memory and must never use a display name.
+For local HTTP acceptance, use a non-`__Host-` cookie with `secure = false` and an exact loopback
+`public_origin`. Configuration validation permits that exception only for loopback HTTP. The full setup,
+safe evidence rules, and manual flow are in `docs/phase-2-backend.md`.
 
-The current workspace and real validation used Rust `1.97.1`. Mock and real evidence remain listed
-separately in [the validation record](docs/protocol-validation.md). The sanitized local report is
-ignored by Git and contains no account, course, video, Cookie, token, path, or query value.
+## Implemented API
 
-## Security posture
+```text
+GET  /api/health
+POST /api/auth/qr/start
+GET  /api/auth/qr/events/:pending_id
+GET  /api/auth/session
+POST /api/auth/logout
+GET  /api/me
+GET  /api/courses
+GET  /api/courses/:course_handle/videos
+GET  /api/courses/:course_handle/videos/:video_handle
+POST /api/courses/:course_handle/videos/:video_handle/tracks/:track_handle/ticket
+HEAD /api/download/:ticket
+GET  /api/download/:ticket
+```
 
-- No jAccount password automation, MFA bypass, course enumeration, or access-control bypass.
-- No upstream Cookie, LTI token, video token, `tokenId`, or source URL may reach browser storage.
-- Every authenticated website session will own a distinct upstream client and cookie jar.
-- Secrets remain memory-only and disappear at logout, expiry, or process restart.
-- Video downloads will be ticketed, allowlisted, Range-aware streams; the server will not cache full
-  recordings or write temporary video files.
-- CORS remains disabled by default, and production bind validation rejects non-loopback addresses.
+See `docs/api.md` for response models and status codes.
 
-See [the security model](docs/security-model.md) for the complete trust boundaries. Phase 0's health
-router is not the production API and does not yet claim the Phase 3 header, CSRF, session, rate-limit,
-or download-proxy controls.
+## Security invariants
+
+- Every authenticated website session owns one independent in-memory `ProtocolContext` and Cookie Jar.
+- Upstream cookies, `tokenId`, course tokens, source URLs, and real upstream identifiers never enter
+  browser JSON or browser storage.
+- Stable identity authorization uses a private exact value or normalized `sha256:` digest, never a name.
+- Login success creates a new random website session ID; a pending ID cannot become the session ID.
+- Session cookies are `HttpOnly`, `SameSite=Lax`, `Path=/`; production uses Secure `__Host-` semantics.
+- State-changing authenticated routes require an exact Origin and session-bound CSRF token; CORS is off.
+- Course/video/track handles and tickets are random, memory-only, parent-bound, and session-bound.
+- Download URLs cannot encode or accept an upstream URL. The source is registered only from an
+  authenticated video-detail response and revalidated before use and after every redirect.
+- Only one validated byte range is forwarded. Upstream `Set-Cookie` and hop-by-hop headers are removed.
+- Response bodies stream through Axum; complete recordings are not buffered, cached, or written to disk.
+- Logout, expiry, shutdown, or process restart destroys the relevant in-memory authentication state.
+- Logs use request IDs and route templates, never raw session, pending, ticket, URL, filename, or token.
+
+Detailed trust boundaries are in `docs/security-model.md`, `docs/web-session-model.md`, and
+`docs/download-proxy-security.md`.
 
 ## Reference and license
 
-The protocol research is based on the actual Rust and React implementation of
-`Okabe-Rintarou-0/SJTU-Canvas-Helper`, not only its README. The source evidence and known unsafe
-desktop assumptions are recorded in [the reference analysis](docs/reference-analysis.md).
+Protocol research is based on the actual Rust and React implementation of
+`Okabe-Rintarou-0/SJTU-Canvas-Helper` at commit
+`b5d895af57aaa74dfd53cef80dfb64c76c023c20` (`v3.0.8`), not only its README. Desktop-only global state,
+persistent cookies/tokens, download workers, and unrelated features were not copied.
 
-This project is MIT licensed. Upstream attribution and the original MIT text are retained in
-`THIRD_PARTY_NOTICES.md`.
+This project is MIT licensed. Source evidence, derived protocol facts, copyright attribution, and the
+upstream MIT text are documented in `docs/reference-analysis.md` and `THIRD_PARTY_NOTICES.md`.

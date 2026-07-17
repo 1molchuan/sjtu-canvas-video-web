@@ -216,3 +216,16 @@ This record distinguishes:
 - observed video host and Range support;
 - known limitations: one account, one authorized course, one selected video/track, no full download,
   no Referer-negative experiment, and upstream protocol drift remains possible.
+
+## Phase 2 relationship to this evidence
+
+Phase 2 reuses this already verified `canvas-core` implementation; it does not replace real protocol
+evidence with Web mocks. The formal server wraps each protocol context in one isolated website session,
+exposes only opaque resource handles, and uses a Cookie-free streaming client for ticketed Range
+requests. The production server binary now enforces the same explicit `SJTU_REAL_PROTOCOL_TEST=1` gate
+before it can start real login work.
+
+Web integration tests cover pending/SSE binding, whitelist enforcement, session and handle isolation,
+CSRF/Origin checks, ticket lifetime, Range streaming, cancellation, header filtering, and safe logs using
+Mock upstreams only. Real Phase 2 browser/API acceptance is a distinct evidence class and must not be
+reported as passed solely because the Phase 1.5 CLI chain passed.

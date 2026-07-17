@@ -37,8 +37,9 @@ Course metadata and video names are private user data even when they are not aut
 
 Pending login and authenticated session are distinct records. Pending login has a five-minute maximum
 age, owns its backend WebSocket cancellation handle, and is consumed once. Authenticated sessions have
-an eight-hour absolute expiry plus tracked last activity. The browser cookie is `HttpOnly`, `Secure`,
-`SameSite=Lax`, `Path=/`, and contains no upstream identity or token.
+an eight-hour absolute expiry; Phase 2 does not implement an idle timeout. The production browser cookie
+is `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, has no Domain, and contains no upstream identity or
+token.
 
 An authenticated session owns its upstream client/cookie store and course-scoped video authorization.
 Course authorization is replaced only for that same course and user. Switching courses cannot mutate
@@ -48,7 +49,8 @@ another session or silently reuse the previous course token.
 
 - Mutating endpoints require same-origin checks and a CSRF token tied to the site session.
 - CORS is disabled unless an explicit same-origin deployment requirement changes.
-- Login and ticket endpoints receive per-IP and per-session rate limits.
+- QR start is rate-limited by direct peer address, and pending capacity is globally bounded. Download
+  streams are bounded by per-user and global semaphores.
 - Request bodies have small explicit limits; IDs and Range syntax are validated at the boundary.
 - API errors use stable public codes and Chinese messages; internal causes remain in redacted logs.
 - Production responses set CSP, `frame-ancestors 'none'`, Referrer Policy, nosniff, and no-store where
@@ -58,8 +60,8 @@ another session or silently reuse the previous course token.
 
 Global and per-user semaphores enforce four total downloads and one per user by default. Permit
 acquisition occurs before contacting the source and is released on completion, upstream error, browser
-cancellation, or task cancellation. API calls use finite connect and total deadlines; a video stream
-uses connect/header/idle controls rather than a short whole-body timeout.
+cancellation, or task cancellation. API calls use finite connect and total deadlines. A video stream
+uses a finite connect timeout and intentionally has no short whole-body timeout.
 
 Only approved end-to-end response headers are forwarded. Hop-by-hop headers, upstream cookies,
 authentication headers, server implementation headers, and arbitrary cache headers are discarded.
@@ -67,9 +69,10 @@ The service sets safe attachment disposition, `Cache-Control: private, no-store`
 
 ## Logging and audit
 
-Allowed fields: keyed session hash, stable user ID, course/video IDs, status, duration, byte count, and
-error class. Disallowed fields: cookies, authorization headers, token values, `tokenId`, QR signatures,
-full URLs/queries, raw HTML/JSON responses, legal names, and unnecessary profile data.
+Allowed fields: request ID, method, route template, status, duration, byte count, completion outcome, and
+error class. Disallowed fields: raw session/pending/ticket IDs, stable IDs, course/video identifiers,
+filenames, cookies, authorization headers, token values, `tokenId`, QR signatures, full URLs/queries,
+raw HTML/JSON responses, legal names, and unnecessary profile data.
 
 Redaction is applied before formatting a log event. Debug mode cannot bypass it. The first release does
 not require persistent audit storage; if SQLite is later justified, it stores only the allowed minimal
@@ -78,9 +81,9 @@ fields and never authentication state.
 ## Historical limitations at the end of Phase 0
 
 At the Phase 0 baseline, only loopback configuration validation and a health route existed. Session,
-CSRF, headers, rate limits, ticketing, and streaming remain Phase 3 design requirements rather than
-completed controls. Real upstream behavior is still unvalidated, and the candidate host list in the
-reference analysis is not yet a production allowlist.
+CSRF, headers, rate limits, ticketing, and streaming were then unimplemented design requirements. This
+paragraph is historical; Phase 1.5 later validated the real upstream chain and Phase 2 implemented the
+Web boundary described below.
 
 ## Phase 1 implemented controls
 
@@ -104,8 +107,8 @@ reference analysis is not yet a production allowlist.
 - Real requests are disabled unless the operator explicitly sets `SJTU_REAL_PROTOCOL_TEST=1`.
   `.local/protocol-report.json` contains only step states, Go/No-Go, video host, and Range support.
 
-These are protocol-validation controls, not the Phase 3 browser security boundary. There is still no
-browser session, CSRF middleware, ticket endpoint, download proxy, rate limit, or production UI.
+These were protocol-validation controls at the Phase 1 baseline. Phase 2 now adds the browser session,
+CSRF, ticket, and streaming boundary; there is still no production UI.
 
 ## Phase 1.5 real-environment evidence
 
@@ -123,4 +126,42 @@ reject cross-purpose hosts.
 The generated `.local/protocol-report.json` contains step statuses, Go/No-Go, source host, and Range
 support only. It is ignored by Git and was scanned for forbidden identity, Cookie, token, course,
 video, path, and query fields. This evidence covers one account, one authorized course, and one
-selected track; it does not reduce the need for per-user isolation or Phase 3 browser controls.
+selected track; Phase 2 still had to implement and test the per-user browser boundary independently.
+
+## Phase 2 implemented Web controls
+
+- A QR pending record has a 256-bit random ID plus a separate `HttpOnly` browser-binding cookie. The
+  SSE route requires both. Login completion is claimed once and rotates to a different 256-bit website
+  session ID.
+- Whitelist comparison uses NFC-normalized, case-sensitive stable identity or its canonical `sha256:`
+  digest. Display name is never an authorization field. Rejected identities retain no Cookie Store.
+- Every website session owns its independent `ProtocolContext`, Cookie Store, course authorization,
+  CSRF secret, resource registry, semaphores, and revocation token. Network calls do not hold a global
+  store write lock.
+- Production cookie validation enforces Secure `__Host-` semantics. An insecure non-Host cookie is
+  accepted only for an exact loopback HTTP origin. CORS is absent; state-changing routes verify exact
+  Origin, reject cross-site fetch metadata, and compare session-bound CSRF tokens in constant time.
+- Course, video, and track identifiers exposed to the browser are random, session-local handles with
+  parent binding and a five-minute TTL. A browser cannot submit raw upstream course/video identifiers.
+- Download tickets are random server-side records bound to session and exact track. They contain no
+  encoded URL, expire after 60 seconds by default, and are removed on logout or session expiry.
+- The streaming client is Cookie-free and redirect-disabled. It revalidates the registered resource and
+  up to three manual redirects, sends the validated Referer, accepts only one parsed byte range, and
+  supports upstream 200/206/416 without buffering a full body.
+- Only six approved response metadata headers are forwarded. Upstream `Set-Cookie`, hop-by-hop headers,
+  implementation headers, and source `Content-Disposition` are discarded. Attachment names are rebuilt
+  from sanitized track metadata.
+- Cleanup cancels expired pending work, sessions, tickets, and streams. Graceful shutdown stops new
+  requests, revokes in-memory state, waits for the configured grace period, and persists no secret.
+- The production server binary refuses startup unless `SJTU_REAL_PROTOCOL_TEST` is exactly `1`. Unit and
+  Mock Router tests do not need or bypass this binary startup gate.
+
+## Residual risks and evidence limits
+
+Phase 2's DNS safety check and reqwest's connection resolution are separate operations, leaving a
+residual DNS time-of-check/time-of-use rebinding window. Exact purpose-specific host allowlists and
+revalidation of every redirect constrain this risk but do not eliminate it cryptographically.
+
+The Phase 1.5 real evidence covers one account, one authorized course, and one selected track. Phase 2
+Mock tests cover multi-session isolation and adverse Web branches. Real Phase 2 browser/API acceptance
+is recorded separately and must not be inferred from Mock results.
