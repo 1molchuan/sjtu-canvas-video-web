@@ -45,11 +45,13 @@ struct WirePayload {
 }
 
 pub fn parse_uuid_from_html(html: &str) -> Result<SecretString, ProtocolError> {
-    let values = UUID_PATTERN
+    let mut values = UUID_PATTERN
         .captures_iter(html)
         .filter_map(|captures| captures.get(1))
         .map(|value| value.as_str().to_owned())
         .collect::<Vec<_>>();
+    values.sort_unstable();
+    values.dedup();
     if values.len() != 1 {
         return Err(ProtocolError::JAccountUuidUnavailable);
     }

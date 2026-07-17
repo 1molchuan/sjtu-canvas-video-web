@@ -6,6 +6,7 @@ use secrecy::{ExposeSecret, SecretString};
 use url::Url;
 
 const UUID: &str = "123e4567-e89b-12d3-a456-426614174000";
+const SECOND_UUID: &str = "223e4567-e89b-12d3-a456-426614174001";
 
 #[test]
 fn extracts_exactly_one_uuid_from_reference_style_html() {
@@ -18,7 +19,7 @@ fn extracts_exactly_one_uuid_from_reference_style_html() {
 
 #[test]
 fn missing_or_ambiguous_uuid_is_not_accepted() {
-    let ambiguous = format!(r#"uuid="{UUID}"; other_uuid="{UUID}";"#);
+    let ambiguous = format!(r#"uuid="{UUID}"; other_uuid="{SECOND_UUID}";"#);
 
     assert!(matches!(
         parse_uuid_from_html("<html>no identifier</html>"),
@@ -28,6 +29,15 @@ fn missing_or_ambiguous_uuid_is_not_accepted() {
         parse_uuid_from_html(&ambiguous),
         Err(ProtocolError::JAccountUuidUnavailable)
     ));
+}
+
+#[test]
+fn repeated_identical_uuid_is_accepted_once() {
+    let html = format!(r#"uuid="{UUID}"; other_uuid="{UUID}"; uuid: '{UUID}';"#);
+
+    let parsed = parse_uuid_from_html(&html).expect("identical UUID copies should be deduplicated");
+
+    assert_eq!(parsed.expose_secret(), UUID);
 }
 
 #[test]
