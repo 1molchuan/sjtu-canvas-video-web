@@ -58,47 +58,15 @@ impl Output {
     }
 
     pub fn courses(&self, courses: &[CanvasCourse]) {
-        eprintln!("课程发现成功：{} 门", courses.len());
-        for course in courses {
-            let term = course
-                .term
-                .as_ref()
-                .map(|term| term.name.as_str())
-                .unwrap_or("-");
-            eprintln!(
-                "  course_id={} code={} term={} name={}",
-                course.id, course.course_code, term, course.name
-            );
-        }
+        eprintln!("{}", format_course_summary(courses));
     }
 
     pub fn videos(&self, videos: &[CanvasVideo]) {
-        eprintln!("录像列表：{} 个", videos.len());
-        for video in videos {
-            let id_hash = self.redactor.hash_identifier(&video.id);
-            eprintln!(
-                "  video_id_hash={} started_at={} name={}",
-                id_hash,
-                video.started_at.as_deref().unwrap_or("-"),
-                video.name
-            );
-        }
+        eprintln!("{}", format_video_summary(videos, &self.redactor));
     }
 
     pub fn tracks(&self, tracks: &[VideoTrack]) -> Result<(), CliError> {
-        eprintln!("视频轨道：{} 条", tracks.len());
-        for track in tracks {
-            let metadata = track
-                .sanitized_upstream(&self.redactor)
-                .map_err(CliError::Protocol)?;
-            eprintln!(
-                "  track_id_hash={} kind={:?} filename={} {}",
-                self.redactor.hash_identifier(&track.id),
-                track.kind,
-                track.suggested_filename,
-                metadata
-            );
-        }
+        eprintln!("{}", format_track_summary(tracks, &self.redactor)?);
         Ok(())
     }
 
@@ -123,4 +91,93 @@ fn random_redaction_key() -> [u8; 32] {
     key[..16].copy_from_slice(first.as_bytes());
     key[16..].copy_from_slice(second.as_bytes());
     key
+}
+
+fn format_course_summary(courses: &[CanvasCourse]) -> String {
+    format!("课程发现成功：{} 门", courses.len())
+}
+
+fn format_video_summary(videos: &[CanvasVideo], redactor: &Redactor) -> String {
+    let mut lines = vec![format!("录像列表：{} 个", videos.len())];
+    lines.extend(videos.iter().map(|video| {
+        format!(
+            "  video_id_hash={} started_at={}",
+            redactor.hash_identifier(&video.id),
+            video.started_at.as_deref().unwrap_or("-")
+        )
+    }));
+    lines.join("\n")
+}
+
+fn format_track_summary(tracks: &[VideoTrack], redactor: &Redactor) -> Result<String, CliError> {
+    let mut lines = vec![format!("视频轨道：{} 条", tracks.len())];
+    for track in tracks {
+        let metadata = track
+            .sanitized_upstream(redactor)
+            .map_err(CliError::Protocol)?;
+        lines.push(format!(
+            "  track_id_hash={} kind={:?} {}",
+            redactor.hash_identifier(&track.id),
+            track.kind,
+            metadata
+        ));
+    }
+    Ok(lines.join("\n"))
+}
+
+#[cfg(test)]
+mod tests {
+    use canvas_core::{
+        canvas::{CanvasCourse, CanvasTerm},
+        redaction::Redactor,
+        video::{CanvasVideo, VideoTrack, VideoTrackInput, VideoTrackKind},
+    };
+    use secrecy::SecretString;
+
+    use super::{format_course_summary, format_track_summary, format_video_summary};
+
+    #[test]
+    fn course_summary_exposes_only_the_count() {
+        let courses = vec![CanvasCourse {
+            id: 12345,
+            name: "private-course-name".to_owned(),
+            course_code: "private-course-code".to_owned(),
+            term: Some(CanvasTerm {
+                name: "private-term".to_owned(),
+            }),
+        }];
+
+        let summary = format_course_summary(&courses);
+
+        assert_eq!(summary, "课程发现成功：1 门");
+        assert!(!summary.contains("12345"));
+        assert!(!summary.contains("private-course"));
+        assert!(!summary.contains("private-term"));
+    }
+
+    #[test]
+    fn video_and_track_summaries_exclude_private_names() {
+        let redactor = Redactor::new([7_u8; 32]);
+        let videos = vec![CanvasVideo {
+            id: "private-video-id".to_owned(),
+            name: "private-video-name".to_owned(),
+            started_at: Some("2026-07-17T08:00:00Z".to_owned()),
+            ended_at: None,
+        }];
+        let tracks = vec![VideoTrack::new(VideoTrackInput {
+            id: "private-track-id".to_owned(),
+            kind: VideoTrackKind::Screen,
+            suggested_filename: "private-filename.mp4".to_owned(),
+            upstream_url: SecretString::from("https://live.sjtu.edu.cn/private-path?secret=1"),
+        })];
+
+        let video_summary = format_video_summary(&videos, &redactor);
+        let track_summary = format_track_summary(&tracks, &redactor).expect("fixture URL is valid");
+
+        assert!(!video_summary.contains("private-video-name"));
+        assert!(!video_summary.contains("private-video-id"));
+        assert!(!track_summary.contains("private-filename"));
+        assert!(!track_summary.contains("private-path"));
+        assert!(!track_summary.contains("secret=1"));
+    }
 }
