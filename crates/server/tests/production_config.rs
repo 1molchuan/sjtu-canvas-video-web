@@ -1,4 +1,5 @@
 use server::config::{AppConfig, ConfigError, DeploymentMode};
+use std::{fs, path::PathBuf};
 
 const VALID_HASH: &str = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
 #[cfg(windows)]
@@ -114,6 +115,22 @@ fn development_mode_keeps_frontend_optional() {
     ]);
     assert_eq!(config.server.mode, DeploymentMode::Development);
     assert!(config.validate().is_ok());
+}
+
+#[test]
+fn ubuntu_example_matches_the_production_schema() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../deploy/ubuntu/production.example.toml");
+    let text = fs::read_to_string(path).expect("Ubuntu production example should be readable");
+    let config: AppConfig = toml::from_str(&text).expect("Ubuntu production example should parse");
+    assert_eq!(config.server.host, "127.0.0.1");
+    assert_eq!(config.server.port, 3100);
+    assert_eq!(config.server.public_origin, "https://canvas.1molchuan.top");
+    assert_eq!(config.server.mode, DeploymentMode::Production);
+    assert_eq!(
+        config.auth.allowed_stable_id_hashes,
+        vec!["sha256:REPLACE_ME"]
+    );
 }
 
 fn frontend_setting() -> &'static str {
