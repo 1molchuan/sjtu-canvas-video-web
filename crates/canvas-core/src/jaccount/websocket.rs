@@ -25,6 +25,7 @@ pub struct QrLoginOptions {
 #[derive(Debug)]
 pub enum QrLoginProgress {
     QrReady { url: SecretString },
+    Scanned,
     Expired,
     UnknownEvent { event_type: String },
 }
@@ -195,7 +196,12 @@ impl LoginEventHandler<'_> {
                     .map_err(|_| ProtocolError::JAccountLoginCancelled)?;
                 Ok(false)
             }
-            QrEvent::Login => Ok(true),
+            QrEvent::Login => {
+                self.progress
+                    .send(QrLoginProgress::Scanned)
+                    .map_err(|_| ProtocolError::JAccountLoginCancelled)?;
+                Ok(true)
+            }
             QrEvent::Expired => {
                 let _ = self.progress.send(QrLoginProgress::Expired);
                 Err(ProtocolError::JAccountQrExpired)

@@ -190,6 +190,11 @@ impl ProtocolConfig {
         self.dns_overrides = overrides;
         self
     }
+
+    pub fn with_connect_timeout(mut self, timeout: Duration) -> Self {
+        self.connect_timeout = timeout;
+        self
+    }
 }
 
 fn websocket_url(origin: &Url) -> Url {

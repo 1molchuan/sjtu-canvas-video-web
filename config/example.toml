@@ -1,16 +1,34 @@
 [server]
 host = "127.0.0.1"
 port = 3000
+public_origin = "https://canvas-video.example.com"
+shutdown_grace_seconds = 15
 session_ttl_hours = 8
 pending_login_ttl_minutes = 5
 download_ticket_ttl_seconds = 60
 max_global_downloads = 4
 max_downloads_per_user = 1
 max_pending_logins = 20
+max_qr_starts_per_minute = 6
 api_timeout_seconds = 30
 upstream_connect_timeout_seconds = 10
 
 [auth]
-# Replace with stable identifiers observed and documented during Phase 1.
-allowed_users = ["replace-with-stable-jaccount-id"]
+# Replace this non-user placeholder in config/local.toml. Never commit the real value.
+allowed_stable_ids = []
+allowed_stable_id_hashes = [
+  "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+]
 
+[cookie]
+name = "__Host-sjtu_canvas_video_session"
+secure = true
+http_only = true
+same_site = "Lax"
+path = "/"
+# Do not set Domain when using the __Host- prefix.
+
+[security]
+csrf_header = "X-CSRF-Token"
+trust_proxy_headers = false
+max_request_body_bytes = 65536

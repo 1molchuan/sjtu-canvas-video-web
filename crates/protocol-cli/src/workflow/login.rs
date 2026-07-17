@@ -136,6 +136,7 @@ fn handle_event(
             output.qr_code(&url)?;
             *qr_seen = true;
         }
+        Some(QrLoginProgress::Scanned) => output.stage("已扫码，正在建立登录状态"),
         Some(QrLoginProgress::Expired) => output.stage("jAccount 二维码已过期"),
         Some(QrLoginProgress::UnknownEvent { event_type }) => output.unknown_event(&event_type),
         None => {}

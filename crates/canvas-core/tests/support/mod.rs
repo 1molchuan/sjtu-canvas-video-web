@@ -37,4 +37,8 @@ impl Drop for MockServer {
     }
 }
 
+#[allow(
+    dead_code,
+    reason = "not every integration-test binary uses shared state"
+)]
 pub type Shared<T> = Arc<T>;

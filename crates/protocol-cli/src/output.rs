@@ -48,13 +48,7 @@ impl Output {
     }
 
     pub fn identity(&self, identity: &UserIdentity) {
-        let stable_hash = self
-            .redactor
-            .hash_identifier(identity.stable_id.expose_secret());
-        eprintln!(
-            "稳定身份：source={:?} stable_id_hash={stable_hash}",
-            identity.source
-        );
+        eprintln!("{}", format_identity_summary(identity, &self.redactor));
     }
 
     pub fn courses(&self, courses: &[CanvasCourse]) {
@@ -97,6 +91,17 @@ fn format_course_summary(courses: &[CanvasCourse]) -> String {
     format!("课程发现成功：{} 门", courses.len())
 }
 
+fn format_identity_summary(identity: &UserIdentity, redactor: &Redactor) -> String {
+    let value = identity.stable_id.expose_secret();
+    let correlation_hash = redactor.hash_identifier(value);
+    let whitelist_hash =
+        canvas_core::identity::hash_stable_id(value).unwrap_or_else(|_| "unavailable".to_owned());
+    format!(
+        "稳定身份：source={:?} stable_id_hash={correlation_hash} whitelist_hash={whitelist_hash}",
+        identity.source
+    )
+}
+
 fn format_video_summary(videos: &[CanvasVideo], redactor: &Redactor) -> String {
     let mut lines = vec![format!("录像列表：{} 个", videos.len())];
     lines.extend(videos.iter().map(|video| {
@@ -134,7 +139,23 @@ mod tests {
     };
     use secrecy::SecretString;
 
-    use super::{format_course_summary, format_track_summary, format_video_summary};
+    use super::{
+        format_course_summary, format_identity_summary, format_track_summary, format_video_summary,
+    };
+
+    #[test]
+    fn identity_summary_exposes_only_hashes() {
+        let identity = canvas_core::canvas::UserIdentity {
+            stable_id: SecretString::from("private-stable-id".to_owned()),
+            account: None,
+            display_name: None,
+            source: canvas_core::canvas::IdentitySource::MySjtuAccount,
+        };
+        let summary = format_identity_summary(&identity, &Redactor::new([7_u8; 32]));
+
+        assert!(summary.contains("whitelist_hash=sha256:"));
+        assert!(!summary.contains("private-stable-id"));
+    }
 
     #[test]
     fn course_summary_exposes_only_the_count() {

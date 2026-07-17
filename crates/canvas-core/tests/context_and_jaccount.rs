@@ -93,6 +93,10 @@ async fn backend_websocket_qr_login_refreshes_once_and_expresses_once() {
         panic!("expected QR-ready event");
     };
     assert!(url.expose_secret().contains("uuid=123e4567"));
+    assert!(matches!(
+        receiver.recv().await.expect("scan event should be emitted"),
+        QrLoginProgress::Scanned
+    ));
     assert_eq!(state.express_calls.load(Ordering::SeqCst), 1);
     assert!(
         result

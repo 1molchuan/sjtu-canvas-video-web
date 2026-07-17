@@ -31,6 +31,8 @@ pub struct FlowState {
     pub lti_launches: AtomicUsize,
     pub token_exchanges: AtomicUsize,
     pub list_calls: AtomicUsize,
+    pub detail_calls: AtomicUsize,
+    pub always_stale_detail: AtomicBool,
 }
 
 pub fn router(state: Shared<FlowState>) -> Router {
@@ -191,11 +193,17 @@ async fn video_list(
         .into_response()
 }
 
-async fn video_detail(headers: HeaderMap, body: Bytes) -> String {
-    assert_eq!(
-        headers.get("token").and_then(|value| value.to_str().ok()),
-        Some(VIDEO_TOKEN)
-    );
+async fn video_detail(
+    State(state): State<Shared<FlowState>>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    state.detail_calls.fetch_add(1, Ordering::SeqCst);
+    let token = headers.get("token").and_then(|value| value.to_str().ok());
+    if token == Some("stale-video-token") || state.always_stale_detail.load(Ordering::SeqCst) {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    assert_eq!(token, Some(VIDEO_TOKEN));
     assert!(String::from_utf8_lossy(&body).contains("id=video-abc"));
     let screen = redirect_url(
         &headers,
@@ -210,6 +218,7 @@ async fn video_detail(headers: HeaderMap, body: Bytes) -> String {
     format!(
         r#"{{"code":"0","data":{{"id":99,"videName":"Lecture 1","videoPlayResponseVoList":[{{"id":1,"trackType":"screen","rtmpUrlHdv":"{screen}"}},{{"id":2,"trackType":"camera","rtmpUrlHdv":"{camera}"}}]}}}}"#
     )
+    .into_response()
 }
 
 async fn video_content(headers: HeaderMap) -> Response {

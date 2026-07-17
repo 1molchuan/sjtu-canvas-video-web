@@ -5,6 +5,7 @@ pub mod canvas;
 pub mod client;
 pub mod constants;
 pub mod error;
+pub mod identity;
 pub mod jaccount;
 pub mod lti;
 pub mod model;

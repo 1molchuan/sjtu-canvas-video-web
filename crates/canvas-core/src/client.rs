@@ -21,11 +21,11 @@ use policy::follow_redirects;
 
 const USER_AGENT: &str = "SJTU-Canvas-Video-Web-Protocol-Validation/0.1";
 
-#[derive(Clone)]
 pub struct ProtocolContext {
     pub client: reqwest::Client,
     pub no_redirect_client: reqwest::Client,
     pub stateless_client: reqwest::Client,
+    pub streaming_client: reqwest::Client,
     pub cookie_store: Arc<CookieStoreMutex>,
     pub endpoints: ProtocolEndpoints,
     pub policy: UpstreamPolicy,
@@ -48,6 +48,7 @@ impl ProtocolContext {
         )?;
         let no_redirect_client = build_client(&config, cookie_store.clone(), Policy::none())?;
         let stateless_client = build_stateless_client(&config, Policy::none())?;
+        let streaming_client = build_streaming_client(&config)?;
         let dns_overrides = config
             .dns_overrides
             .iter()
@@ -57,6 +58,7 @@ impl ProtocolContext {
             client,
             no_redirect_client,
             stateless_client,
+            streaming_client,
             cookie_store,
             endpoints: config.endpoints,
             policy: config.policy,
@@ -155,11 +157,20 @@ fn build_stateless_client(
         .map_err(|_| ProtocolError::HttpClientBuildFailed)
 }
 
+fn build_streaming_client(config: &ProtocolConfig) -> Result<reqwest::Client, ProtocolError> {
+    base_builder(config, Policy::none())
+        .build()
+        .map_err(|_| ProtocolError::HttpClientBuildFailed)
+}
+
 fn configured_builder(config: &ProtocolConfig, redirect_policy: Policy) -> reqwest::ClientBuilder {
+    base_builder(config, redirect_policy).timeout(config.request_timeout)
+}
+
+fn base_builder(config: &ProtocolConfig, redirect_policy: Policy) -> reqwest::ClientBuilder {
     let mut builder = reqwest::Client::builder()
         .user_agent(USER_AGENT)
         .connect_timeout(config.connect_timeout)
-        .timeout(config.request_timeout)
         .redirect(redirect_policy)
         .no_proxy();
     for dns in &config.dns_overrides {

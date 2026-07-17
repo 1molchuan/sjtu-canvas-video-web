@@ -135,7 +135,7 @@ fn header(response: &Response, name: reqwest::header::HeaderName) -> Option<&str
         .and_then(|value| value.to_str().ok())
 }
 
-async fn validate_resolved_address(
+pub(super) async fn validate_resolved_address(
     context: &ProtocolContext,
     target: &Url,
 ) -> Result<(), ProtocolError> {
