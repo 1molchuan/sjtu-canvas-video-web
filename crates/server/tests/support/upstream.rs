@@ -23,6 +23,7 @@ pub struct CapturedRequest {
     pub range: Option<String>,
     pub referer: Option<String>,
     pub accept_encoding: Option<String>,
+    pub origin: Option<String>,
     pub cookie: Option<String>,
     pub authorization: Option<String>,
 }
@@ -141,6 +142,7 @@ fn capture(method: &Method, headers: &HeaderMap) -> CapturedRequest {
         range: header_string(headers, header::RANGE),
         referer: header_string(headers, header::REFERER),
         accept_encoding: header_string(headers, header::ACCEPT_ENCODING),
+        origin: header_string(headers, header::ORIGIN),
         cookie: header_string(headers, header::COOKIE),
         authorization: header_string(headers, header::AUTHORIZATION),
     }

@@ -2,10 +2,12 @@ mod support;
 
 use axum::http::{StatusCode, header};
 
-use support::{HarnessOptions, RequestSpec, harness, login, ready_download, request};
+use support::{
+    HarnessOptions, PUBLIC_ORIGIN, RequestSpec, harness, login, ready_download, request,
+};
 
 #[tokio::test]
-async fn explicit_direct_mode_redirects_without_contacting_upstream() {
+async fn explicit_direct_mode_probes_compatibility_then_redirects() {
     let harness = harness(HarnessOptions {
         direct_downloads: true,
         ..HarnessOptions::default()
@@ -26,7 +28,20 @@ async fn explicit_direct_mode_redirects_without_contacting_upstream() {
     );
     assert_eq!(response.headers()[header::REFERRER_POLICY], "no-referrer");
     assert!(response.headers().get(header::LOCATION).is_some());
-    assert!(harness.captures.lock().await.is_empty());
+    let captures = harness.captures.lock().await;
+    assert_eq!(captures.len(), 3);
+    assert_eq!(captures[0].range.as_deref(), Some("bytes=0-0"));
+    assert!(captures[0].referer.is_none());
+    assert!(captures[0].origin.is_none());
+    assert_eq!(captures[1].range.as_deref(), Some("bytes=0-0"));
+    assert!(captures[1].referer.is_none());
+    assert_eq!(captures[1].origin.as_deref(), Some(PUBLIC_ORIGIN));
+    assert_eq!(captures[2].range.as_deref(), Some("bytes=0-0"));
+    assert_eq!(
+        captures[2].referer.as_deref(),
+        Some(canvas_core::constants::VIDEO_DOWNLOAD_REFERER)
+    );
+    assert!(captures[2].origin.is_none());
 }
 
 #[tokio::test]

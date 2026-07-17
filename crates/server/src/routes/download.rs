@@ -39,7 +39,12 @@ async fn download(
     let ticket = resolve_ticket(&state, &session, &raw_ticket)?;
     verify_resource_binding(&session, &ticket).await?;
     if state.config().server.download_delivery == DownloadDelivery::RedirectExperimental {
-        return direct_download_redirect(session.protocol(), ticket.resource()).await;
+        return direct_download_redirect(
+            session.protocol(),
+            ticket.resource(),
+            state.public_origin(),
+        )
+        .await;
     }
     let permits = acquire_permits(
         state.global_download_semaphore(),

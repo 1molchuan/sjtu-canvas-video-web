@@ -21,6 +21,13 @@ The setting is therefore opt-in, is never selected automatically, and has no sil
 Disable it by restoring `download_delivery = "proxy"` and restarting the in-memory service. A restart
 invalidates website Sessions and tickets.
 
+While this experiment is enabled, the server performs three header-only compatibility checks before
+issuing the redirect. Each check requests only `Range: bytes=0-0`: a navigation-like request without
+Referer, a CORS request carrying only the configured public Origin, and a proxy control request carrying
+the verified Canvas Referer. The response body is dropped immediately. Logs contain only the probe mode,
+validated host, status, normalized MIME type, Range/CORS classification, attachment-header presence, and
+redirect count; URLs, paths, queries, tokens, filenames, and response bodies remain excluded.
+
 The protocol CLI supports a one-byte compatibility probe:
 
 ```powershell
