@@ -45,11 +45,7 @@ impl LtiProbe {
     }
 
     pub(super) const fn token_exchange() -> Self {
-        Self::new(
-            "lti_token_exchange",
-            "GET",
-            "/jy-application-canvas-sjtu/lti3/getAccessTokenByTokenId",
-        )
+        Self::new("lti_token_exchange", "GET", "<video-api-token-exchange>")
     }
 
     const fn new(
@@ -98,7 +94,7 @@ fn redirect_host_from_location(base: &Url, location: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::redirect_host_from_location;
+    use super::{LtiProbe, redirect_host_from_location};
     use url::Url;
 
     #[test]
@@ -111,5 +107,11 @@ mod tests {
         assert_eq!(summary.as_deref(), Some("video.example.test"));
         assert!(!format!("{summary:?}").contains("private-token"));
         assert!(!format!("{summary:?}").contains("private-account"));
+    }
+
+    #[test]
+    fn token_exchange_log_template_omits_sensitive_parameter_name() {
+        let template = LtiProbe::token_exchange().path_template;
+        assert!(!template.to_ascii_lowercase().contains("tokenid"));
     }
 }
