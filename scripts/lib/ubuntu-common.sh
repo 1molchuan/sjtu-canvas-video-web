@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# State is consumed by sourcing scripts.
+# shellcheck disable=SC2034
 set -euo pipefail
 
 APP_ROOT="${CANVAS_VIDEO_APP_ROOT:-/opt/canvas-video}"

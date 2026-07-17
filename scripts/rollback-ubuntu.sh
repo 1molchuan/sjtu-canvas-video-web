@@ -2,7 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=scripts/lib/ubuntu-common.sh
+# Resolved relative to this script at runtime.
+# shellcheck disable=SC1091
 source "$SCRIPT_DIR/lib/ubuntu-common.sh"
 
 TARGET_SHA="${1:-}"

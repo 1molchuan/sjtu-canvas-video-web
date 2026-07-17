@@ -1,4 +1,6 @@
 #!/bin/bash
+# State is consumed by sourcing scripts.
+# shellcheck disable=SC2034
 set -euo pipefail
 
 SERVICE_ROOT="${SJTU_CANVAS_SERVICE_ROOT:-$HOME/Services/sjtu-canvas-video}"

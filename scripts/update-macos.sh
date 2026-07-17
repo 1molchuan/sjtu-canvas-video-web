@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolved relative to this script at runtime.
+# shellcheck disable=SC1091
 source "$ROOT/scripts/lib/macos-common.sh"
 
 [ "$#" -eq 1 ] || fail "usage: update-macos.sh /absolute/path/to/release"

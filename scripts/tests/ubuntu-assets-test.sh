@@ -10,13 +10,19 @@ grep -Fq 'User=canvas-video' "$UNIT"
 grep -Fq 'ProtectSystem=strict' "$UNIT"
 grep -Fq 'RestrictAddressFamilies=AF_INET AF_INET6' "$UNIT"
 grep -Fq 'SJTU_CANVAS_CONFIG=/etc/canvas-video/config.toml' "$UNIT"
-! grep -Eiq 'token|password|stable_id_hash' "$UNIT"
+if grep -Eiq 'token|password|stable_id_hash' "$UNIT"; then
+  exit 1
+fi
 
 grep -Fq 'canvas.1molchuan.top' "$CADDY"
 grep -Fq 'reverse_proxy 127.0.0.1:3100' "$CADDY"
 grep -Fq 'header_up Accept-Encoding identity' "$CADDY"
-! grep -Eq '(^|[[:space:]])(log|encode|file_server)([[:space:]]|$)' "$CADDY"
-! grep -Fq 'flush_interval -1' "$CADDY"
+if grep -Eq '(^|[[:space:]])(log|encode|file_server)([[:space:]]|$)' "$CADDY"; then
+  exit 1
+fi
+if grep -Fq 'flush_interval -1' "$CADDY"; then
+  exit 1
+fi
 
 grep -Fq 'host = "127.0.0.1"' "$CONFIG"
 grep -Fq 'public_origin = "https://canvas.1molchuan.top"' "$CONFIG"
