@@ -1,0 +1,136 @@
+.eyebrow,
+.folio,
+.resource-card__kind,
+.track-row__kind {
+  margin-bottom: 14px;
+  color: var(--teal);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.folio {
+  color: var(--rust);
+}
+
+.button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  padding: 9px 16px;
+  border-radius: 0;
+  cursor: pointer;
+  font-weight: 650;
+  line-height: 1.2;
+  text-decoration: none;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.button--primary {
+  border-color: var(--teal);
+  background: var(--teal);
+  color: #fff;
+}
+
+.button--primary:hover:not(:disabled) {
+  border-color: var(--teal-dark);
+  background: var(--teal-dark);
+  color: #fff;
+}
+
+.button--secondary {
+  border-color: var(--line-strong);
+  background: transparent;
+  color: var(--ink);
+}
+
+.button--quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--teal-dark);
+}
+
+.button--quiet:hover {
+  border-color: var(--line);
+  color: var(--rust);
+}
+
+.text-link {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 700;
+}
+
+.loading-state {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: var(--ink-muted);
+}
+
+.loading-state p {
+  margin: 0;
+}
+
+.loading-mark {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--line);
+  border-top-color: var(--teal);
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-notice,
+.empty-state {
+  max-width: 680px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--rust);
+  padding: clamp(24px, 5vw, 44px);
+  background: var(--paper-raised);
+  box-shadow: var(--shadow);
+}
+
+.error-notice h2,
+.empty-state h2 {
+  margin-bottom: 12px;
+}
+
+.error-notice > p:not(.eyebrow),
+.empty-state > p {
+  color: var(--ink-muted);
+}
+
+.request-id {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.empty-state__rule {
+  display: block;
+  width: 52px;
+  height: 3px;
+  margin-bottom: 24px;
+  background: var(--teal);
+}
+
+.inline-error,
+.download-status--error {
+  color: #7a2518;
+}

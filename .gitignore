@@ -5,5 +5,11 @@
 /research_sjtu_canvas_helper/SJTU-Canvas-Helper/
 /frontend/node_modules/
 /frontend/dist/
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/.env.local
+/frontend/*.tsbuildinfo
+/release/
+/deploy/cloudflare/*.json
 *.log
 .DS_Store

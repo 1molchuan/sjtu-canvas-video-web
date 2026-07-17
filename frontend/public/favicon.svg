@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Canvas Video Helper">
+  <rect width="64" height="64" fill="#f2efe6"/>
+  <rect x="7" y="7" width="50" height="50" fill="none" stroke="#145d54" stroke-width="3"/>
+  <path d="M20 21h24M20 32h18M20 43h24" fill="none" stroke="#172421" stroke-width="3"/>
+  <circle cx="47" cy="32" r="5" fill="#a2442f"/>
+</svg>

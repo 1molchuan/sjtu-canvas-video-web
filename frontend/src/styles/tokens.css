@@ -1,0 +1,19 @@
+:root {
+  color-scheme: light;
+  --paper: #f2efe6;
+  --paper-raised: #fbf9f2;
+  --ink: #172421;
+  --ink-muted: #5e6863;
+  --line: #c8c7bb;
+  --line-strong: #8c928b;
+  --teal: #145d54;
+  --teal-dark: #0c413b;
+  --rust: #a2442f;
+  --rust-pale: #f4ded4;
+  --focus: #bd6b28;
+  --shadow: 0 16px 40px rgb(23 36 33 / 9%);
+  --serif: "Iowan Old Style", "Baskerville", "Songti SC", "STSong", Georgia, serif;
+  --sans: "Avenir Next", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --content-width: 1120px;
+}

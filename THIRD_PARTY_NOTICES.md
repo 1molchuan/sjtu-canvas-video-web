@@ -31,3 +31,18 @@ Upstream license text:
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 > SOFTWARE.
 
+## Frontend runtime and test toolchain
+
+The Phase 3 frontend uses the following direct open-source packages. Transitive package versions and
+integrity hashes are fixed by `frontend/package-lock.json`; their license files remain in installed npm
+packages and distributions as required.
+
+- React and React DOM — MIT
+- React Router — MIT
+- TanStack Query — MIT
+- Zod — MIT
+- qrcode.react — ISC
+- Vite and Vitest — MIT
+- Playwright — Apache-2.0
+
+No school, Canvas, or upstream video-platform logo or proprietary frontend asset is bundled.
