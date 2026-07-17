@@ -1,69 +1,66 @@
 # 更新与回滚
 
+当前推荐生产环境为 Ubuntu + systemd + Caddy。Mac mini 的历史脚本仍保留，
+但不代表当前生产状态。
+
 ## 原则
 
-- 发布包不包含 `config/local.toml`、`.local/`、Tunnel credential、浏览器 trace 或视频；
-- 私有配置固定在 `~/Services/sjtu-canvas-video/config/`，不随 release 替换；
-- `current` symlink 是唯一激活指针；
-- 新 release 完整复制后才切换；
-- 切换后先重启再检查本地 `/api/health`；
-- 健康检查失败时立即恢复旧 symlink 并再次重启；
-- 成功后只保留最近三个 release。
+- 构建精确 Git SHA，发布目录不可变。
+- `/opt/canvas-video/current` 是原子 symlink，不原地覆盖运行目录。
+- `/etc/canvas-video/config.toml` 永不进入 release。
+- 切换后先做 loopback healthcheck，再做公网 HTTPS healthcheck。
+- 任一健康检查失败即恢复旧 symlink、重启旧版本并再次检查。
+- 当前版本永不因清理逻辑删除；成功后仅保留最近三个 release。
 
 ## 更新
 
-在 Mac mini 的干净 checkout 构建：
+在干净源码上生成 Linux release：
 
 ```bash
-git fetch --tags
-git checkout <reviewed-commit>
-./scripts/build-release.sh
-./release/scripts/update-macos.sh /absolute/path/to/repository/release
+SOURCE_GIT_SHA=<exact-sha> CARGO_BUILD_JOBS=1 \
+  ./scripts/build-release-linux.sh
 ```
 
-脚本验证 `VERSION` 的 40 位 Git SHA、服务二进制、`frontend/dist/index.html` 和 `.local` 不存在。它不会覆盖私有配置，也不会在复制失败时中断当前版本。
+核对 `VERSION`、`manifest.txt` 与二进制架构，再执行：
 
-更新会使所有内存 Session、上游 Cookie 和 ticket 失效，这是安全模型的一部分；用户需重新扫码。长下载在重启时中断，发布前应告知受邀用户。
-
-## 自动失败回滚
-
-`update-macos.sh` 保存旧 symlink，切换新 release，执行：
-
-```text
-launchctl kickstart -k gui/$UID/<label>
-→ http://127.0.0.1:3100/api/health
+```bash
+sudo ./scripts/update-ubuntu.sh /absolute/path/to/release-linux
 ```
 
-任一步失败都会恢复旧 link、重启旧进程并再次 healthcheck，然后以失败状态退出。脚本不会用健康 API 成功代替真实扫码或下载验收。
+脚本安装到 `/opt/canvas-video/releases/<sha>`，原子切换 `current`，重启
+`canvas-video.service` 并验证本地和公网 health。失败不会报告成功。
 
 ## 手动回滚
 
-回滚到最近一个非当前 release：
+先只读列出现有 release，并从 `VERSION` 确认目标 SHA。回滚必须显式给出完整
+40 字符 SHA，不自动猜测版本：
 
 ```bash
-~/Services/sjtu-canvas-video/current/scripts/rollback-macos.sh
+sudo ./scripts/rollback-ubuntu.sh <40-character-sha>
 ```
 
-回滚到指定目录名：
+目标 release 必须通过 manifest 与禁用文件检查。回滚自身若失败，会恢复之前
+的 symlink 并给出明确错误。
+
+## 配置回滚
+
+配置不随 release 切换。修改前在 `/etc/canvas-video/` 内创建 root-only 备份，
+应用后重启并执行健康检查。不得把真实配置复制到 release 或 Git。若配置导致
+启动失败，恢复备份、校正 `root:canvas-video 0640` 后重启。
+
+## Caddy changes
+
+修改 `/etc/caddy/Caddyfile` 前建立带 UTC 时间戳的 root-only 备份。先执行
+`caddy validate`，成功后只 reload Caddy。不要停止未知站点，也不要启用包含
+下载 ticket 的 access log。
+
+## Verification
 
 ```bash
-~/Services/sjtu-canvas-video/current/scripts/rollback-macos.sh <timestamp>-<git-sha>
+./scripts/verify-production.sh
+systemctl status canvas-video caddy --no-pager
+ss -ltnp
 ```
 
-目标仍须通过 healthcheck；失败则恢复回滚前版本。回滚后旧 Session 同样失效。
-
-## 配置变更回滚
-
-脚本故意不版本化私有配置。修改前手工创建仅限本机的权限 600 备份，文件名和内容不得进入 Git。若新版本需要配置字段，先根据 `config/production.example.toml` 做最小差异更新；不要直接覆盖。
-
-## 验收
-
-更新或回滚完成后至少验证：
-
-1. loopback health；
-2. 进程只监听 loopback；
-3. 公网 HTTPS 与静态资源；
-4. 重新扫码、课程和一条最小 Range；
-5. `CF-Cache-Status` 非 `HIT`；
-6. 登出和旧 ticket 失效；
-7. 日志和磁盘无视频或 secret。
+重启服务会按设计销毁所有内存 Session、上游 Cookie、课程 token 与 ticket；
+用户需要重新扫码。这不是数据丢失故障。

@@ -15,7 +15,7 @@ Course metadata and video names are private user data even when they are not aut
 2. Axum ↔ jAccount/Canvas/video systems: one independently constructed client and cookie store per
    authenticated user session.
 3. Download registry ↔ source host: source URLs enter only from authenticated upstream video details.
-4. Mac mini ↔ Cloudflare Tunnel: the origin binds to loopback; cloudflared initiates the connection.
+4. Ubuntu ↔ Caddy: Axum binds to loopback; only Caddy exposes 80/443 and terminates origin TLS.
 5. Process memory ↔ disk/logs: authentication state is memory-only and logs contain sanitized IDs.
 
 ## Non-negotiable invariants
@@ -199,9 +199,19 @@ regression test so the sensitive parameter name no longer appears in future logs
   distribution, Secure `__Host-` Cookie semantics, and a non-example allowlist.
 - The Cloudflare rule must bypass cache for `/api/*`. Origin headers do not replace a public-domain check
   of `206`, `Content-Range` and non-HIT cache status.
-- Tunnel credentials stay in the operator's cloudflared directory. They are absent from application
-  config, release archives, launchd property lists and Git.
 
-Phase 3 does not widen trust in proxy headers: `trust_proxy_headers` remains false. The direct peer seen
-by Axum is cloudflared on loopback; security decisions continue to use Session, pending binding, Origin,
+## Phase 3.5 Ubuntu production boundary
+
+- The recommended origin is Ubuntu with systemd and Caddy; Cloudflare Tunnel is not used.
+- Axum remains bound to `127.0.0.1:3100`; Caddy alone accepts public HTTP/HTTPS.
+- Caddy does not serve files, cache, encode, or access-log capability-bearing URIs.
+- `/api/` is bypassed at the Cloudflare cache layer in addition to origin no-store headers.
+- Releases are root-owned, immutable directories selected through an atomic symlink.
+- The service account has no shell, home, sudo, write access to releases, or Linux capabilities.
+- Production config is outside releases and readable only by root and the service group.
+- Restart intentionally destroys all sessions, upstream cookies, course tokens, and tickets.
+- Cloudflare credentials are absent from application config, releases, systemd, Caddy and Git.
+
+Phase 3.5 does not widen trust in proxy headers: `trust_proxy_headers` remains false. The direct peer
+seen by Axum is Caddy on loopback; security decisions continue to use Session, pending binding, Origin,
 CSRF and server-side authorization rather than client-supplied forwarding headers.
