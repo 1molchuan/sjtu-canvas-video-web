@@ -25,11 +25,43 @@ pub fn sanitize_filename(value: &str) -> String {
 
 pub fn attachment_content_disposition(filename: &str) -> Result<HeaderValue, InvalidHeaderValue> {
     let sanitized = sanitize_filename(filename);
-    let fallback = ascii_fallback(&sanitized);
-    let encoded = encode_extended_value(&sanitized);
+    build_attachment_content_disposition(&sanitized)
+}
+
+pub fn subtitle_attachment_content_disposition(
+    filename: &str,
+) -> Result<HeaderValue, InvalidHeaderValue> {
+    let sanitized = sanitize_subtitle_filename(filename);
+    build_attachment_content_disposition(&sanitized)
+}
+
+fn build_attachment_content_disposition(
+    sanitized: &str,
+) -> Result<HeaderValue, InvalidHeaderValue> {
+    let fallback = ascii_fallback(sanitized);
+    let encoded = encode_extended_value(sanitized);
     let value = format!("attachment; filename=\"{fallback}\"; filename*=UTF-8''{encoded}");
 
     HeaderValue::from_bytes(value.as_bytes())
+}
+
+fn sanitize_subtitle_filename(value: &str) -> String {
+    let without_srt = value.strip_suffix(".srt").unwrap_or(value);
+    let stem = without_srt
+        .rsplit_once('.')
+        .map_or(without_srt, |(base, _)| base);
+    let stem_limit = MAX_FILENAME_CHARS - ".srt".len();
+    let cleaned = stem
+        .chars()
+        .take(stem_limit)
+        .map(sanitize_character)
+        .collect::<String>();
+    let without_parent_markers = remove_parent_markers(&cleaned);
+    let trimmed = without_parent_markers.trim_matches([' ', '.', '_']);
+    if trimmed.is_empty() {
+        return "subtitle.srt".to_owned();
+    }
+    format!("{trimmed}.srt")
 }
 
 fn sanitize_character(character: char) -> char {

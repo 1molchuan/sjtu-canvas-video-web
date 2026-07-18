@@ -8,14 +8,16 @@ use canvas_core::{
     client::{DnsOverride, ProtocolConfig, ProtocolContext},
     jaccount::{QrLoginOptions, QrLoginProgress},
     lti::CourseVideoAuth,
-    video::{CanvasVideo, VideoInfo, VideoTrack, VideoTrackInput, VideoTrackKind},
+    video::{
+        CanvasVideo, SubtitleDocument, VideoInfo, VideoTrack, VideoTrackInput, VideoTrackKind,
+    },
 };
 use secrecy::SecretString;
 use server::{
     app_router,
     auth::login::{AuthenticatedLogin, LoginProvider},
     config::AppConfig,
-    gateway::{ProtocolGateway, VideoDetailRequest, VideoDetailSession},
+    gateway::{ProtocolGateway, SubtitleSession, VideoDetailRequest, VideoDetailSession},
     state::{AppServices, AppState},
 };
 use tokio::sync::mpsc;
@@ -121,6 +123,7 @@ impl ProtocolGateway for Gateway {
             info: VideoInfo {
                 id: request.video_id.to_owned(),
                 name: "Synthetic Recording".to_owned(),
+                source_course_id: 9001,
                 tracks: vec![VideoTrack::new(VideoTrackInput {
                     id: "synthetic-track-id".to_owned(),
                     kind: VideoTrackKind::Screen,
@@ -128,6 +131,23 @@ impl ProtocolGateway for Gateway {
                     upstream_url: SecretString::from(self.upstream_url.clone()),
                 })],
             },
+        })
+    }
+
+    async fn subtitle(
+        &self,
+        _context: &ProtocolContext,
+        request: VideoDetailRequest<'_>,
+    ) -> Result<SubtitleSession, ProtocolError> {
+        if matches!(self.mode, GatewayMode::SubtitleMissing) {
+            return Err(ProtocolError::SubtitleMissing);
+        }
+        Ok(SubtitleSession {
+            auth: Arc::new(course_auth(request.canvas_course_id)),
+            document: SubtitleDocument {
+                srt: "1\n00:00:01,000 --> 00:00:02,000\nSynthetic subtitle\n\n".to_owned(),
+            },
+            video_name: "Synthetic Recording".to_owned(),
         })
     }
 }

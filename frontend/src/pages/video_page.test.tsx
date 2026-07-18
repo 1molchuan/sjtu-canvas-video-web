@@ -7,6 +7,7 @@ import type { CourseApi } from "../api/courses";
 import type { DirectDownloadAdapter, DirectDownloadFile } from "../api/direct_download";
 import type { DownloadApi } from "../api/downloads";
 import type { AuthApi } from "../api/auth";
+import type { SubtitleApi } from "../api/subtitles";
 import { authenticatedSession, fakeAuthApi, renderWithProviders } from "../test/render";
 import { VideoPage } from "./video_page";
 
@@ -16,6 +17,7 @@ type RenderOptions = {
   startDownload?: (url: string) => void;
   directDownload?: DirectDownloadAdapter;
   authApi?: AuthApi;
+  subtitles?: SubtitleApi;
 };
 
 function renderPage(options: RenderOptions) {
@@ -29,6 +31,7 @@ function renderPage(options: RenderOptions) {
             downloads={options.downloads}
             startDownload={options.startDownload}
             directDownload={options.directDownload}
+            subtitles={options.subtitles}
           />
         }
       />
@@ -62,6 +65,19 @@ describe("VideoPage", () => {
     expect(screen.getByText("视频轨道 2")).toBeInTheDocument();
     expect(screen.getAllByText("类型未识别")).toHaveLength(2);
     expect(screen.queryByText("电脑录屏")).not.toBeInTheDocument();
+  });
+
+  it("downloads the current recording subtitle without exposing an upstream URL", async () => {
+    const user = userEvent.setup();
+    const download = vi.fn().mockResolvedValue(undefined);
+    renderPage({ api: detailApi(), subtitles: { download } });
+
+    await user.click(await screen.findByRole("button", { name: "下载字幕" }));
+
+    await waitFor(() =>
+      expect(download).toHaveBeenCalledWith("opaque-course", "opaque-video", "课程录像"),
+    );
+    expect(screen.getByText("字幕下载已开始。")).toBeInTheDocument();
   });
 
   it("issues a fresh CSRF-bound ticket then starts native navigation", async () => {

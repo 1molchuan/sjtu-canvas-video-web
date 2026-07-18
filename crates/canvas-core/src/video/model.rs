@@ -18,6 +18,7 @@ pub struct CanvasVideo {
 pub struct VideoInfo {
     pub id: String,
     pub name: String,
+    pub source_course_id: i64,
     pub tracks: Vec<VideoTrack>,
 }
 

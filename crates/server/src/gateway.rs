@@ -6,7 +6,10 @@ use canvas_core::{
     canvas::{CanvasCourse, CourseDiscoveryOutcome, discover_courses},
     client::ProtocolContext,
     lti::{CourseVideoAuth, establish_course_video_session},
-    video::{CanvasVideo, VideoInfo, get_video_info, list_course_videos_with_refresh},
+    video::{
+        CanvasVideo, SubtitleDocument, VideoInfo, get_subtitle, get_video_info,
+        list_course_videos_with_refresh,
+    },
 };
 
 pub struct VideoDetailSession {
@@ -18,6 +21,12 @@ pub struct VideoDetailRequest<'a> {
     pub canvas_course_id: i64,
     pub auth: Option<Arc<CourseVideoAuth>>,
     pub video_id: &'a str,
+}
+
+pub struct SubtitleSession {
+    pub auth: Arc<CourseVideoAuth>,
+    pub document: SubtitleDocument,
+    pub video_name: String,
 }
 
 #[async_trait]
@@ -35,6 +44,12 @@ pub trait ProtocolGateway: Send + Sync {
         context: &ProtocolContext,
         request: VideoDetailRequest<'_>,
     ) -> Result<VideoDetailSession, ProtocolError>;
+
+    async fn subtitle(
+        &self,
+        context: &ProtocolContext,
+        request: VideoDetailRequest<'_>,
+    ) -> Result<SubtitleSession, ProtocolError>;
 }
 
 pub struct ProductionProtocolGateway;
@@ -84,6 +99,43 @@ impl ProtocolGateway for ProductionProtocolGateway {
             Err(error) => Err(error),
         }
     }
+
+    async fn subtitle(
+        &self,
+        context: &ProtocolContext,
+        request: VideoDetailRequest<'_>,
+    ) -> Result<SubtitleSession, ProtocolError> {
+        let auth = match request.auth {
+            Some(auth) => auth,
+            None => {
+                Arc::new(establish_course_video_session(context, request.canvas_course_id).await?)
+            }
+        };
+        match subtitle_with_auth(context, auth, request.video_id).await {
+            Ok(subtitle) => Ok(subtitle),
+            Err(ProtocolError::VideoTokenExpired) => {
+                let refreshed = Arc::new(
+                    establish_course_video_session(context, request.canvas_course_id).await?,
+                );
+                subtitle_with_auth(context, refreshed, request.video_id).await
+            }
+            Err(error) => Err(error),
+        }
+    }
+}
+
+async fn subtitle_with_auth(
+    context: &ProtocolContext,
+    auth: Arc<CourseVideoAuth>,
+    video_id: &str,
+) -> Result<SubtitleSession, ProtocolError> {
+    let info = get_video_info(context, &auth, video_id).await?;
+    let document = get_subtitle(context, &auth, info.source_course_id).await?;
+    Ok(SubtitleSession {
+        auth,
+        document,
+        video_name: info.name,
+    })
 }
 
 async fn refresh_detail(

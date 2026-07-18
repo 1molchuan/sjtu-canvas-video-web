@@ -21,6 +21,7 @@ pub enum WebErrorCode {
     CourseHandleInvalid,
     VideoHandleInvalid,
     TrackHandleInvalid,
+    SubtitleNotFound,
     DownloadTicketInvalid,
     DownloadTicketExpired,
     DownloadTicketSessionMismatch,
@@ -133,6 +134,14 @@ impl WebError {
             StatusCode::NOT_FOUND,
             WebErrorCode::TrackHandleInvalid,
             "视频轨道不存在或访问句柄已过期。",
+        )
+    }
+
+    pub fn subtitle_missing() -> Self {
+        Self::new(
+            StatusCode::NOT_FOUND,
+            WebErrorCode::SubtitleNotFound,
+            "这段录像暂时没有可用字幕。",
         )
     }
 

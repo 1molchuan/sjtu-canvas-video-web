@@ -32,6 +32,7 @@ pub struct FlowState {
     pub token_exchanges: AtomicUsize,
     pub list_calls: AtomicUsize,
     pub detail_calls: AtomicUsize,
+    pub subtitle_calls: AtomicUsize,
     pub always_stale_detail: AtomicBool,
 }
 
@@ -54,6 +55,7 @@ pub fn router(state: Shared<FlowState>) -> Router {
             "/video/directOnDemandPlay/getVodVideoInfos",
             post(video_detail),
         )
+        .route("/video/transfer/translate/detail", post(subtitle_detail))
         .route("/content/recording-screen.mp4", get(video_content))
         .route("/content/recording-camera.mp4", get(video_content))
         .with_state(state)
@@ -216,9 +218,27 @@ async fn video_detail(
         "/content/recording-camera.mp4?signature=upstream-secret",
     );
     format!(
-        r#"{{"code":"0","data":{{"id":99,"videName":"Lecture 1","videoPlayResponseVoList":[{{"id":1,"trackType":"screen","rtmpUrlHdv":"{screen}"}},{{"id":2,"trackType":"camera","rtmpUrlHdv":"{camera}"}}]}}}}"#
+        r#"{{"code":"0","data":{{"id":99,"courId":9001,"videName":"Lecture 1","videoPlayResponseVoList":[{{"id":1,"trackType":"screen","rtmpUrlHdv":"{screen}"}},{{"id":2,"trackType":"camera","rtmpUrlHdv":"{camera}"}}]}}}}"#
     )
     .into_response()
+}
+
+async fn subtitle_detail(
+    State(state): State<Shared<FlowState>>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    state.subtitle_calls.fetch_add(1, Ordering::SeqCst);
+    assert_eq!(
+        headers.get("token").and_then(|value| value.to_str().ok()),
+        Some(VIDEO_TOKEN)
+    );
+    assert!(String::from_utf8_lossy(&body).contains(r#""courseId":"9001""#));
+    (
+        [("content-type", "application/json")],
+        r#"{"code":"0","data":{"beforeAssemblyList":[{"bg":1000,"ed":1500,"res":"第一句"},{"bg":2000,"ed":3000,"res":"第二句"}],"afterAssemblyList":[]}}"#,
+    )
+        .into_response()
 }
 
 async fn video_content(headers: HeaderMap) -> Response {

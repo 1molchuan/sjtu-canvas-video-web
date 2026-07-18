@@ -22,6 +22,7 @@ struct DetailResponse {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RawDetail {
+    cour_id: i64,
     #[serde(default)]
     vide_name: String,
     video_play_response_vo_list: Vec<RawTrack>,
@@ -94,6 +95,7 @@ fn parse_detail(
     Ok(VideoInfo {
         id: video_id.to_owned(),
         name: detail.vide_name,
+        source_course_id: detail.cour_id,
         tracks,
     })
 }

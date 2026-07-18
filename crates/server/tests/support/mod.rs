@@ -115,6 +115,7 @@ pub enum GatewayMode {
     CoursesFail,
     VideosFail,
     DetailFail,
+    SubtitleMissing,
 }
 
 impl Default for HarnessOptions {

@@ -107,6 +107,37 @@
   border-top: 1px solid var(--line-strong);
 }
 
+.subtitle-download {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 24px;
+  align-items: center;
+  margin-bottom: 24px;
+  border: 1px solid var(--line);
+  padding: clamp(20px, 4vw, 32px);
+  background: var(--paper-raised);
+}
+
+.subtitle-download h2,
+.subtitle-download p {
+  margin-bottom: 8px;
+}
+
+.subtitle-download .download-status {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .subtitle-download {
+    grid-template-columns: 1fr;
+  }
+
+  .subtitle-download .button {
+    width: 100%;
+  }
+}
+
 .resource-row,
 .track-row {
   display: grid;

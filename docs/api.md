@@ -179,6 +179,17 @@ Validates both parent handles, obtains current video details, and registers trac
 
 No real video ID, course ID, upstream host, URL, path, query, Referer, or token is returned.
 
+### `GET /api/courses/:course_handle/videos/:video_handle/subtitle`
+
+Validates the session-bound course and video handles, refreshes the course-bound video authorization at
+most once, fetches the original recognition cues, and returns a UTF-8 SRT attachment. The upstream
+subtitle token and recording `courId` never enter the browser. The response uses
+`Content-Type: application/x-subrip; charset=utf-8` and `Cache-Control: private, no-store`.
+
+If the video platform has not generated a subtitle, the API returns an explicit
+`404 SUBTITLE_NOT_FOUND` JSON error instead of an empty file. Subtitle text is held only for the request
+and is not written to disk or retained in the website session.
+
 ## Download ticket
 
 ### `POST /api/courses/:course_handle/videos/:video_handle/tracks/:track_handle/ticket`

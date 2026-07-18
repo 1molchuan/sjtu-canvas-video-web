@@ -84,6 +84,10 @@ pub enum ProtocolError {
     VideoDetailFailed,
     #[error("video detail contains no usable track")]
     VideoTrackMissing,
+    #[error("subtitle request failed")]
+    SubtitleFailed,
+    #[error("video has no subtitle")]
+    SubtitleMissing,
     #[error("video Range probe failed")]
     RangeProbeFailed,
     #[error("video upstream rejected or changed Range semantics")]

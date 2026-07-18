@@ -3,6 +3,7 @@ mod courses;
 mod download;
 mod health;
 mod me;
+mod subtitles;
 mod tickets;
 mod videos;
 
@@ -31,6 +32,7 @@ fn api_routes() -> Router<AppState> {
         .merge(courses::router())
         .merge(download::router())
         .merge(videos::router())
+        .merge(subtitles::router())
         .merge(tickets::router())
         .route("/api", any(api_not_found))
         .route("/api/{*path}", any(api_not_found))

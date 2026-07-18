@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiClient, PublicApiError } from "./client";
 import { createCourseApi, shouldRetryQuery } from "./courses";
 import { createDownloadApi, startNativeDownload } from "./downloads";
+import { createSubtitleApi } from "./subtitles";
 
 describe("resource API", () => {
   it("encodes opaque handles into fixed route templates", async () => {
@@ -55,6 +56,22 @@ describe("resource API", () => {
     expect(shouldRetryQuery(1, upstream)).toBe(false);
     expect(shouldRetryQuery(0, unauthorized)).toBe(false);
     expect(shouldRetryQuery(0, schema)).toBe(false);
+  });
+
+  it("downloads subtitles from the fixed session-bound route", async () => {
+    const blob = new Blob(["subtitle"], { type: "application/x-subrip" });
+    const getBlob = vi.fn().mockResolvedValue(blob);
+    const save = vi.fn();
+    const client = { getBlob } as unknown as ApiClient;
+    const api = createSubtitleApi(client, save);
+
+    await api.download("course/one", "video?one", "课程/录像");
+
+    expect(getBlob).toHaveBeenCalledWith(
+      "/api/courses/course%2Fone/videos/video%3Fone/subtitle",
+      "application/x-subrip",
+    );
+    expect(save).toHaveBeenCalledWith(blob, "课程_录像.srt");
   });
 });
 

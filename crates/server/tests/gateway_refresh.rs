@@ -59,6 +59,30 @@ async fn second_expired_detail_token_is_not_retried_again() {
     assert_eq!(state.detail_calls.load(Ordering::SeqCst), 2);
 }
 
+#[tokio::test]
+async fn expired_subtitle_authorization_relaunches_lti_exactly_once() {
+    let state = Arc::new(FlowState::default());
+    let server = MockServer::spawn(router(state.clone())).await;
+    let context =
+        ProtocolContext::new(MockTopology::for_server(&server).config).expect("protocol context");
+    let subtitle = ProductionProtocolGateway
+        .subtitle(
+            &context,
+            VideoDetailRequest {
+                canvas_course_id: CANVAS_COURSE_ID,
+                auth: Some(stale_auth()),
+                video_id: "video-abc",
+            },
+        )
+        .await
+        .expect("one refresh should recover subtitle access");
+
+    assert!(subtitle.document.srt.contains("第一句"));
+    assert_eq!(state.lti_launches.load(Ordering::SeqCst), 1);
+    assert_eq!(state.detail_calls.load(Ordering::SeqCst), 2);
+    assert_eq!(state.subtitle_calls.load(Ordering::SeqCst), 1);
+}
+
 fn stale_auth() -> Arc<CourseVideoAuth> {
     Arc::new(CourseVideoAuth {
         canvas_course_id: CANVAS_COURSE_ID,

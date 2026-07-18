@@ -12,6 +12,7 @@ export type ApiClientOptions = {
 type RequestOptions = {
   method: "GET" | "POST";
   csrfToken?: string;
+  accept?: string;
 };
 
 export class PublicApiError extends Error {
@@ -60,6 +61,15 @@ export class ApiClient {
     }
   }
 
+  async getBlob(path: string, expectedContentType: string): Promise<Blob> {
+    const response = await this.fetch(path, { method: "GET", accept: expectedContentType });
+    const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+    if (!contentType.includes(expectedContentType.toLowerCase())) {
+      throw invalidResponse(response.status);
+    }
+    return response.blob();
+  }
+
   private async request<T>(
     path: string,
     schema: ZodType<T>,
@@ -100,7 +110,7 @@ export class ApiClient {
 }
 
 function buildRequest(options: RequestOptions): RequestInit {
-  const headers = new Headers({ Accept: JSON_CONTENT_TYPE });
+  const headers = new Headers({ Accept: options.accept ?? JSON_CONTENT_TYPE });
   if (options.csrfToken !== undefined) {
     headers.set("X-CSRF-Token", options.csrfToken);
   }

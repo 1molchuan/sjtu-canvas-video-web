@@ -5,11 +5,13 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { createCourseApi, shouldRetryQuery, type CourseApi } from "../api/courses";
 import type { DownloadApi } from "../api/downloads";
 import type { DirectDownloadAdapter } from "../api/direct_download";
+import type { SubtitleApi } from "../api/subtitles";
 import { useAuth } from "../auth/auth_context";
 import { AppShell } from "../components/app_shell";
 import { EmptyState } from "../components/empty_state";
 import { ErrorNotice } from "../components/error_notice";
 import { LoadingState } from "../components/loading_state";
+import { SubtitleDownloadButton } from "../components/subtitle_download_button";
 import { TrackDownloadButton } from "../components/track_download_button";
 
 type VideoPageProps = {
@@ -17,6 +19,7 @@ type VideoPageProps = {
   downloads?: DownloadApi;
   startDownload?: (url: string) => void;
   directDownload?: DirectDownloadAdapter;
+  subtitles?: SubtitleApi;
 };
 
 export function VideoPage(props: VideoPageProps) {
@@ -43,6 +46,14 @@ export function VideoPage(props: VideoPageProps) {
       </header>
       {query.isPending && <LoadingState label="正在获取录像轨道" />}
       {query.error !== null && <ErrorNotice error={query.error} onRetry={() => void query.refetch()} />}
+      {query.data !== undefined && (
+        <SubtitleDownloadButton
+          courseHandle={courseHandle}
+          videoHandle={videoHandle}
+          videoName={query.data.video.name}
+          api={props.subtitles}
+        />
+      )}
       {query.data?.video.tracks.length === 0 && (
         <EmptyState title="没有可下载轨道" description="视频系统没有返回可用的视频轨道。" />
       )}

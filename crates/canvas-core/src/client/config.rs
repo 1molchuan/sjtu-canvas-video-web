@@ -21,6 +21,7 @@ pub struct ProtocolEndpoints {
     pub token_exchange: Url,
     pub video_list: Url,
     pub video_detail: Url,
+    pub subtitle_detail: Url,
     pub video_ui_referer: Url,
 }
 
@@ -85,6 +86,9 @@ impl ProtocolEndpoints {
             video_detail: static_url(
                 "https://v.sjtu.edu.cn/jy-application-canvas-sjtu/directOnDemandPlay/getVodVideoInfos",
             ),
+            subtitle_detail: static_url(
+                "https://v.sjtu.edu.cn/jy-application-canvas-sjtu/transfer/translate/detail",
+            ),
             video_ui_referer: static_url("https://v.sjtu.edu.cn/jy-application-canvas-sjtu-ui/"),
         }
     }
@@ -125,6 +129,7 @@ impl ProtocolEndpoints {
                 &origins.video_api,
                 "video/directOnDemandPlay/getVodVideoInfos",
             ),
+            subtitle_detail: join(&origins.video_api, "video/transfer/translate/detail"),
             video_ui_referer: join(&origins.video_api, "video-ui/"),
         }
     }

@@ -59,11 +59,11 @@ struct TrackResponse {
     suggested_filename: String,
 }
 
-struct DetailTarget {
-    course: CourseHandle,
-    video: VideoHandle,
-    canvas_course_id: i64,
-    real_video_id: String,
+pub(crate) struct DetailTarget {
+    pub course: CourseHandle,
+    pub video: VideoHandle,
+    pub canvas_course_id: i64,
+    pub real_video_id: String,
 }
 
 async fn list_videos(
@@ -147,7 +147,7 @@ async fn video_detail(
     }))
 }
 
-async fn resolve_detail_target(
+pub(crate) async fn resolve_detail_target(
     session: &crate::session::UserSession,
     raw: (String, String),
     now: OffsetDateTime,
@@ -191,7 +191,7 @@ fn parse_course(raw: &str) -> Result<CourseHandle, WebError> {
     CourseHandle::parse(raw).ok_or_else(WebError::invalid_course_handle)
 }
 
-fn ensure_active(session: &Arc<crate::session::UserSession>) -> Result<(), WebError> {
+pub(crate) fn ensure_active(session: &Arc<crate::session::UserSession>) -> Result<(), WebError> {
     (!session.is_revoked())
         .then_some(())
         .ok_or_else(WebError::unauthorized)

@@ -9,7 +9,7 @@ use server::stream::{
     ByteRange, MAX_FILENAME_CHARS, MAX_RANGE_HEADER_BYTES, RangeParseError,
     UPSTREAM_RESPONSE_HEADER_ALLOWLIST, attachment_content_disposition,
     filter_upstream_response_headers, is_allowed_upstream_response_header, parse_single_range,
-    sanitize_filename,
+    sanitize_filename, subtitle_attachment_content_disposition,
 };
 
 #[test]
@@ -99,6 +99,17 @@ fn builds_safe_utf8_attachment_content_disposition() {
     assert!(text.contains("%E8%AF%BE%E7%A8%8B"));
     assert!(!text.contains(['\r', '\n', '/', '\\']));
     assert_eq!(text.matches('"').count(), 2);
+}
+
+#[test]
+fn builds_safe_srt_attachment_content_disposition() {
+    let value = subtitle_attachment_content_disposition("课程\r\n../字幕.exe")
+        .expect("safe subtitle Content-Disposition");
+    let text = value.to_str().expect("ASCII header");
+    assert!(text.contains(".srt"));
+    assert!(!text.contains("\r"));
+    assert!(!text.contains("\n"));
+    assert!(!text.contains(".exe"));
 }
 
 #[test]
