@@ -260,5 +260,4 @@ max_request_body_bytes = 65536
 
         assert!(config.validate().is_err());
     }
-
 }
