@@ -16,6 +16,9 @@ pub enum WebErrorCode {
     UserNotAllowed,
     TooManyPendingLogins,
     QrStartRateLimited,
+    InviteInvalid,
+    InviteExpired,
+    InviteAlreadyUsed,
     PendingLoginNotFound,
     PendingLoginExpired,
     CourseHandleInvalid,
@@ -79,6 +82,30 @@ impl WebError {
         );
         error.retry_after = Some(HeaderValue::from_static("60"));
         error
+    }
+
+    pub fn invite_invalid() -> Self {
+        Self::new(
+            StatusCode::FORBIDDEN,
+            WebErrorCode::InviteInvalid,
+            "邀请链接无效。",
+        )
+    }
+
+    pub fn invite_expired() -> Self {
+        Self::new(
+            StatusCode::GONE,
+            WebErrorCode::InviteExpired,
+            "邀请链接已过期。",
+        )
+    }
+
+    pub fn invite_already_used() -> Self {
+        Self::new(
+            StatusCode::GONE,
+            WebErrorCode::InviteAlreadyUsed,
+            "邀请链接已使用或正在使用。",
+        )
     }
 
     pub fn pending_not_found() -> Self {

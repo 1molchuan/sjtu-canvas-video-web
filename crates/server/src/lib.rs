@@ -7,6 +7,7 @@ pub mod frontend;
 pub mod gate;
 pub mod gateway;
 mod id;
+pub mod invite;
 pub mod middleware;
 mod routes;
 pub mod session;

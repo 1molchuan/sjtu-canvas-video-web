@@ -19,6 +19,7 @@ impl AppConfig {
         self.validate_cookie()?;
         self.validate_limits()?;
         self.validate_allowlist()?;
+        self.validate_invites()?;
         if self.security.max_request_body_bytes == 0 {
             return Err(ConfigError::InvalidDurations);
         }
@@ -71,6 +72,14 @@ impl AppConfig {
         if self.has_placeholder_allowlist() {
             return Err(ConfigError::ProductionPlaceholderAllowlist);
         }
+        if self
+            .invites
+            .database_path
+            .as_ref()
+            .is_some_and(|path| !path.is_absolute())
+        {
+            return Err(ConfigError::ProductionInvitePathAbsolute);
+        }
         Ok(())
     }
 
@@ -110,6 +119,13 @@ impl AppConfig {
         if self.auth.allowed_stable_ids.is_empty() && self.auth.allowed_stable_id_hashes.is_empty()
         {
             return Err(ConfigError::EmptyAllowlist);
+        }
+        Ok(())
+    }
+
+    fn validate_invites(&self) -> Result<(), ConfigError> {
+        if self.invites.default_ttl_hours == 0 {
+            return Err(ConfigError::InvalidDurations);
         }
         Ok(())
     }

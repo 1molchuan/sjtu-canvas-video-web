@@ -13,6 +13,8 @@ use thiserror::Error;
 pub struct AppConfig {
     pub server: ServerConfig,
     pub auth: AuthConfig,
+    #[serde(default)]
+    pub invites: InviteConfig,
     pub cookie: CookieConfig,
     pub security: SecurityConfig,
 }
@@ -71,6 +73,23 @@ pub struct AuthConfig {
     pub allowed_stable_ids: Vec<String>,
     #[serde(default)]
     pub allowed_stable_id_hashes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct InviteConfig {
+    #[serde(default)]
+    pub database_path: Option<PathBuf>,
+    #[serde(default = "default_invite_ttl_hours")]
+    pub default_ttl_hours: u64,
+}
+
+impl Default for InviteConfig {
+    fn default() -> Self {
+        Self {
+            database_path: None,
+            default_ttl_hours: default_invite_ttl_hours(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -139,6 +158,8 @@ pub enum ConfigError {
     ProductionHostCookieRequired,
     #[error("production mode rejects example allowlist values")]
     ProductionPlaceholderAllowlist,
+    #[error("production invite database path must be absolute")]
+    ProductionInvitePathAbsolute,
 }
 
 impl AppConfig {
@@ -168,6 +189,10 @@ fn default_max_request_body_bytes() -> usize {
 
 fn default_max_qr_starts_per_minute() -> usize {
     6
+}
+
+fn default_invite_ttl_hours() -> u64 {
+    24
 }
 
 #[cfg(test)]
@@ -235,4 +260,5 @@ max_request_body_bytes = 65536
 
         assert!(config.validate().is_err());
     }
+
 }

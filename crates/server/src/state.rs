@@ -16,6 +16,7 @@ use crate::{
     },
     config::{AppConfig, ConfigError},
     gateway::{ProductionProtocolGateway, ProtocolGateway},
+    invite::{InviteError, InviteStore},
     session::SessionStore,
     ticket::DownloadTicketStore,
 };
@@ -32,6 +33,7 @@ struct AppStateInner {
     login_provider: Arc<dyn LoginProvider>,
     protocol_gateway: Arc<dyn ProtocolGateway>,
     whitelist: StableIdWhitelist,
+    invites: Option<InviteStore>,
     sessions: SessionStore,
     pending_logins: PendingLoginStore,
     login_rate_limiter: LoginRateLimiter,
@@ -46,6 +48,8 @@ pub enum StateError {
     Config(#[from] ConfigError),
     #[error(transparent)]
     Whitelist(#[from] WhitelistError),
+    #[error(transparent)]
+    Invite(#[from] InviteError),
     #[error("validated public origin could not be parsed")]
     PublicOrigin,
 }
@@ -87,6 +91,12 @@ impl AppState {
         let public_origin =
             Url::parse(&config.server.public_origin).map_err(|_| StateError::PublicOrigin)?;
         let whitelist = StableIdWhitelist::from_config(&config.auth)?;
+        let invites = config
+            .invites
+            .database_path
+            .as_ref()
+            .map(InviteStore::open)
+            .transpose()?;
         let pending_logins = PendingLoginStore::new(config.server.max_pending_logins);
         let login_rate_limiter =
             LoginRateLimiter::per_minute(config.server.max_qr_starts_per_minute);
@@ -99,6 +109,7 @@ impl AppState {
             login_provider: services.login_provider,
             protocol_gateway: services.protocol_gateway,
             whitelist,
+            invites,
             sessions: SessionStore::new(),
             pending_logins,
             login_rate_limiter,
@@ -129,6 +140,9 @@ impl AppState {
     pub(crate) fn whitelist(&self) -> &StableIdWhitelist {
         &self.inner.whitelist
     }
+    pub(crate) fn invites(&self) -> Option<&InviteStore> {
+        self.inner.invites.as_ref()
+    }
     pub(crate) fn sessions(&self) -> &SessionStore {
         &self.inner.sessions
     }
@@ -146,6 +160,10 @@ impl AppState {
     }
     pub(crate) fn shutdown(&self) -> CancellationToken {
         self.inner.shutdown.clone()
+    }
+
+    pub fn pending_login_count(&self) -> usize {
+        self.inner.pending_logins.len()
     }
 
     pub fn cleanup_expired(&self, now: OffsetDateTime) -> CleanupSummary {

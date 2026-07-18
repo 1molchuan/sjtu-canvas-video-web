@@ -24,6 +24,11 @@ allowed_stable_id_hashes = [
   "sha256:0000000000000000000000000000000000000000000000000000000000000000"
 ]
 
+[invites]
+# Optional. Use an ignored private path to enable one-time invitation links.
+database_path = ".local/invites.sqlite3"
+default_ttl_hours = 24
+
 [cookie]
 name = "sjtu_canvas_video_session_dev"
 secure = false

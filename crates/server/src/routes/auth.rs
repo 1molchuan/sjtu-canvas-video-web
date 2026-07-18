@@ -8,11 +8,11 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{get, post},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use crate::{
-    auth::{browser_cookie, pending::PendingLoginId, sse, workflow},
+    auth::{browser_cookie, invite, pending::PendingLoginId, sse, workflow},
     error::WebError,
     middleware::{cookies, csrf, origin, peer::PeerAddress},
     session::{SessionLookupError, UserSession, UserSessionOptions},
@@ -34,10 +34,16 @@ struct StartResponse {
     expires_in_seconds: u64,
 }
 
+#[derive(Default, Deserialize)]
+struct StartRequest {
+    invite_token: Option<String>,
+}
+
 async fn start_qr(
     State(state): State<AppState>,
     PeerAddress(address): PeerAddress,
     headers: HeaderMap,
+    request: Option<Json<StartRequest>>,
 ) -> Result<Response, WebError> {
     origin::verify(&headers, state.public_origin()).map_err(|_| WebError::origin_rejected())?;
     if !state.login_rate_limiter().allow(address, Instant::now()) {
@@ -45,10 +51,23 @@ async fn start_qr(
     }
     let now = OffsetDateTime::now_utc();
     let ttl = time::Duration::minutes(state.config().server.pending_login_ttl_minutes as i64);
-    let pending = state
+    let invite = invite::reserve(
+        &state,
+        request.and_then(|Json(body)| body.invite_token),
+        now,
+        ttl,
+    )
+    .await?;
+    let pending = match state
         .pending_logins()
-        .create(now, ttl)
-        .map_err(|_| WebError::too_many_pending())?;
+        .create_with_invite(now, ttl, invite.clone())
+    {
+        Ok(pending) => pending,
+        Err(_) => {
+            invite::release(&state, invite).await?;
+            return Err(WebError::too_many_pending());
+        }
+    };
     let body = StartResponse {
         pending_id: pending.id().expose().to_owned(),
         events_url: format!("/api/auth/qr/events/{}", pending.id().expose()),

@@ -13,6 +13,7 @@ type RequestOptions = {
   method: "GET" | "POST";
   csrfToken?: string;
   accept?: string;
+  body?: unknown;
 };
 
 export class PublicApiError extends Error {
@@ -52,6 +53,10 @@ export class ApiClient {
 
   post<T>(path: string, schema: ZodType<T>, csrfToken?: string): Promise<T> {
     return this.request(path, schema, { method: "POST", csrfToken });
+  }
+
+  postJson<T>(path: string, schema: ZodType<T>, body: unknown): Promise<T> {
+    return this.request(path, schema, { method: "POST", body });
   }
 
   async postNoContent(path: string, csrfToken?: string): Promise<void> {
@@ -114,10 +119,14 @@ function buildRequest(options: RequestOptions): RequestInit {
   if (options.csrfToken !== undefined) {
     headers.set("X-CSRF-Token", options.csrfToken);
   }
+  if (options.body !== undefined) {
+    headers.set("Content-Type", JSON_CONTENT_TYPE);
+  }
   return {
     method: options.method,
     credentials: "same-origin",
     headers,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
   };
 }
 

@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::path::PathBuf;
+
 mod app;
 mod upstream;
 
@@ -88,7 +90,7 @@ pub struct TestHarness {
     pub captures: upstream::CaptureStore,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct HarnessOptions {
     pub direct_downloads: bool,
     pub max_global_downloads: usize,
@@ -97,6 +99,7 @@ pub struct HarnessOptions {
     pub protocol_timeout_millis: u64,
     pub login_mode: LoginMode,
     pub gateway_mode: GatewayMode,
+    pub invite_database_path: Option<PathBuf>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -128,6 +131,7 @@ impl Default for HarnessOptions {
             protocol_timeout_millis: 2_000,
             login_mode: LoginMode::Allowed,
             gateway_mode: GatewayMode::Success,
+            invite_database_path: None,
         }
     }
 }

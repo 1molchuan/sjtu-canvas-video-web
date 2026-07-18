@@ -5,6 +5,8 @@ use canvas_core::{
     client::ProtocolContext,
     jaccount::{QrLoginOptions, QrLoginProgress},
 };
+use secrecy::ExposeSecret;
+use time::OffsetDateTime;
 use tokio::sync::mpsc;
 
 use super::{
@@ -129,17 +131,76 @@ async fn finish(
     result: Result<AuthenticatedLogin, ProtocolError>,
 ) {
     let Ok(login) = result else {
+        release_pending_invite(state, pending).await;
         if pending.state().await != PendingLoginState::Expired {
             fail(pending).await;
         }
         return;
     };
-    if !state.whitelist().allows(&login.identity.stable_id) {
-        let _ = pending.transition(PendingLoginState::Failed).await;
-        pending.publish(LoginEvent::Rejected);
-        return;
+    match authorize_identity(state, pending, &login).await {
+        Ok(true) => {
+            let _ = pending.complete(login).await;
+        }
+        Ok(false) => reject(pending).await,
+        Err(()) => invite_failed(pending).await,
     }
-    let _ = pending.complete(login).await;
+}
+
+async fn authorize_identity(
+    state: &AppState,
+    pending: &PendingLogin,
+    login: &AuthenticatedLogin,
+) -> Result<bool, ()> {
+    let configured = state.whitelist().allows(&login.identity.stable_id);
+    let Some(store) = state.invites().cloned() else {
+        return Ok(configured);
+    };
+    let stable_hash =
+        crate::auth::whitelist::hash_stable_id(login.identity.stable_id.expose_secret())
+            .map_err(|_| ())?;
+    if let Some(reservation) = pending.invite_reservation() {
+        tokio::task::spawn_blocking(move || {
+            store.consume_and_enroll(&reservation, &stable_hash, OffsetDateTime::now_utc())
+        })
+        .await
+        .map_err(|_| ())?
+        .map_err(|_| ())?;
+        return Ok(true);
+    }
+    if configured {
+        return Ok(true);
+    }
+    let lookup_store = store.clone();
+    let lookup_hash = stable_hash.clone();
+    let allowed = tokio::task::spawn_blocking(move || lookup_store.is_allowed(&lookup_hash))
+        .await
+        .map_err(|_| ())?
+        .map_err(|_| ())?;
+    if allowed {
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+async fn release_pending_invite(state: &AppState, pending: &PendingLogin) {
+    let (Some(store), Some(reservation)) = (state.invites().cloned(), pending.invite_reservation())
+    else {
+        return;
+    };
+    let _ = tokio::task::spawn_blocking(move || store.release(&reservation)).await;
+}
+
+async fn reject(pending: &PendingLogin) {
+    let _ = pending.transition(PendingLoginState::Failed).await;
+    pending.publish(LoginEvent::Rejected);
+}
+
+async fn invite_failed(pending: &PendingLogin) {
+    let _ = pending.transition(PendingLoginState::Failed).await;
+    pending.publish(LoginEvent::Error {
+        code: "INVITE_FAILED".to_owned(),
+        message: "邀请已失效，请向邀请人获取新链接。".to_owned(),
+    });
 }
 
 async fn fail(pending: &PendingLogin) {

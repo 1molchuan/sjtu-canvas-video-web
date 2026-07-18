@@ -1,4 +1,5 @@
 pub(crate) mod browser_cookie;
+pub(crate) mod invite;
 pub mod login;
 pub mod pending;
 pub mod rate_limit;

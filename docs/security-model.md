@@ -35,6 +35,10 @@ Course metadata and video names are private user data even when they are not aut
 
 ## Session lifecycle
 
+一次性邀请是可选的登记边界，不替代 jAccount 身份验证。原始邀请令牌只在维护者的管理命令输出、浏览器 URL fragment 和扫码启动 POST body 中短暂存在；数据库只保存令牌 SHA-256 哈希。登录获得稳定身份后，服务端原子消费邀请并持久化规范化稳定身份哈希。动态白名单数据库不包含姓名、Cookie、上游 token 或课程数据。
+
+邀请预留绑定 pending login，避免同一链接并发登记多人。失败的协议流程释放预留；成功、过期或正在使用的链接不能再次开始登录。动态用户撤销阻止后续 Session，但不主动终止已经建立的内存 Session。
+
 Pending login and authenticated session are distinct records. Pending login has a five-minute maximum
 age, owns its backend WebSocket cancellation handle, and is consumed once. Authenticated sessions have
 an eight-hour absolute expiry; Phase 2 does not implement an idle timeout. The production browser cookie
@@ -73,6 +77,8 @@ Allowed fields: request ID, method, route template, status, duration, byte count
 error class. Disallowed fields: raw session/pending/ticket IDs, stable IDs, course/video identifiers,
 filenames, cookies, authorization headers, token values, `tokenId`, QR signatures, full URLs/queries,
 raw HTML/JSON responses, legal names, and unnecessary profile data.
+
+邀请 URL fragment 和原始邀请令牌同样禁止进入日志。只有管理 CLI 的 `create` 命令会把原始邀请链接输出给维护者。
 
 Redaction is applied before formatting a log event. Debug mode cannot bypass it. The first release does
 not require persistent audit storage; if SQLite is later justified, it stores only the allowed minimal

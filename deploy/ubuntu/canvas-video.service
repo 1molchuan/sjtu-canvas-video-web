@@ -17,6 +17,8 @@ RestartSec=5s
 TimeoutStopSec=20s
 KillSignal=SIGTERM
 UMask=0077
+StateDirectory=canvas-video
+StateDirectoryMode=0700
 
 NoNewPrivileges=true
 PrivateTmp=true

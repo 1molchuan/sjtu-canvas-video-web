@@ -8,14 +8,19 @@ import {
 
 export type AuthApi = {
   getSession: () => Promise<SessionResponse>;
-  startLogin: () => Promise<QrStartResponse>;
+  startLogin: (inviteToken?: string) => Promise<QrStartResponse>;
   logout: (csrfToken: string) => Promise<void>;
 };
 
 export function createAuthApi(client: ApiClient): AuthApi {
   return {
     getSession: () => client.get("/api/auth/session", sessionResponseSchema),
-    startLogin: () => client.post("/api/auth/qr/start", qrStartResponseSchema),
+    startLogin: (inviteToken) =>
+      inviteToken === undefined
+        ? client.post("/api/auth/qr/start", qrStartResponseSchema)
+        : client.postJson("/api/auth/qr/start", qrStartResponseSchema, {
+            invite_token: inviteToken,
+          }),
     logout: (csrfToken) => client.postNoContent("/api/auth/logout", csrfToken),
   };
 }

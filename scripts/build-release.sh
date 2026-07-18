@@ -43,11 +43,12 @@ write_version() {
 package_release() {
   mkdir -p "$STAGING/bin" "$STAGING/frontend" "$STAGING/config"
   cp "$ROOT/target/release/server" "$STAGING/bin/sjtu-canvas-video-server"
+  cp "$ROOT/target/release/invite-admin" "$STAGING/bin/canvas-video-invite-admin"
   cp -R "$ROOT/frontend/dist" "$STAGING/frontend/dist"
   cp "$ROOT/config/production.example.toml" "$STAGING/config/example.toml"
   cp -R "$ROOT/deploy" "$STAGING/deploy"
   cp -R "$ROOT/scripts" "$STAGING/scripts"
-  chmod 755 "$STAGING/bin/sjtu-canvas-video-server"
+  chmod 755 "$STAGING/bin/sjtu-canvas-video-server" "$STAGING/bin/canvas-video-invite-admin"
   write_version
   rm -rf "$OUTPUT"
   mv "$STAGING" "$OUTPUT"

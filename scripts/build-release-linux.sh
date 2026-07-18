@@ -76,6 +76,7 @@ write_version() {
 
 verify_staging() {
   [ -x "$STAGING/bin/sjtu-canvas-video-server" ] || fail "release binary missing"
+  [ -x "$STAGING/bin/canvas-video-invite-admin" ] || fail "invite admin binary missing"
   [ -f "$STAGING/frontend/dist/index.html" ] || fail "frontend index missing"
   if find "$STAGING" -type f \( -name '*.map' -o -name '*.mp4' -o -name '*.mkv' -o -name '*.webm' -o -name 'config.toml' \) -print -quit | grep -q .; then
     fail "release contains forbidden files"
@@ -86,6 +87,7 @@ package_release() {
   rm -rf -- "$STAGING"
   mkdir -p "$STAGING/bin" "$STAGING/frontend"
   install -m 0755 "$ROOT/target/release/server" "$STAGING/bin/sjtu-canvas-video-server"
+  install -m 0755 "$ROOT/target/release/invite-admin" "$STAGING/bin/canvas-video-invite-admin"
   cp -a "$ROOT/frontend/dist" "$STAGING/frontend/dist"
   write_version
   verify_staging

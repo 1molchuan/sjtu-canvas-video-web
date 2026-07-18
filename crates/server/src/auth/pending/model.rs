@@ -10,6 +10,7 @@ use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 
 use crate::id::{RandomIdError, opaque_id};
+use crate::invite::InviteReservation;
 
 use super::super::login::AuthenticatedLogin;
 
@@ -91,6 +92,7 @@ struct PendingInner {
     events: VecDeque<LoginEvent>,
     authenticated: Option<AuthenticatedLogin>,
     completed_expires_at: Option<OffsetDateTime>,
+    invite_reservation: Option<InviteReservation>,
 }
 
 pub struct PendingLogin {
@@ -117,6 +119,7 @@ impl PendingLogin {
     pub(super) fn new(
         created_at: OffsetDateTime,
         expires_at: OffsetDateTime,
+        invite_reservation: Option<InviteReservation>,
     ) -> Result<Self, RandomIdError> {
         let (event_tx, _) = broadcast::channel(EVENT_CHANNEL_CAPACITY);
         Ok(Self {
@@ -127,6 +130,7 @@ impl PendingLogin {
                 events: VecDeque::new(),
                 authenticated: None,
                 completed_expires_at: None,
+                invite_reservation,
             }),
             created_at,
             expires_at,
@@ -175,6 +179,10 @@ impl PendingLogin {
 
     pub fn event_history(&self) -> Vec<LoginEvent> {
         self.inner.lock().events.iter().cloned().collect()
+    }
+
+    pub fn invite_reservation(&self) -> Option<InviteReservation> {
+        self.inner.lock().invite_reservation.clone()
     }
 
     pub async fn complete(&self, login: AuthenticatedLogin) -> Result<(), PendingStoreError> {

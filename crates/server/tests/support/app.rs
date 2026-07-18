@@ -175,7 +175,7 @@ pub(super) fn build(
         }),
     };
     let state =
-        AppState::with_services(parse_config(options), protocol, services).expect("app state");
+        AppState::with_services(parse_config(&options), protocol, services).expect("app state");
     (app_router(state.clone()), state)
 }
 
@@ -187,7 +187,14 @@ fn course_auth(canvas_course_id: i64) -> CourseVideoAuth {
     }
 }
 
-fn parse_config(options: HarnessOptions) -> AppConfig {
+fn parse_config(options: &HarnessOptions) -> AppConfig {
+    let invites = options
+        .invite_database_path
+        .as_ref()
+        .map_or_else(String::new, |path| {
+            let escaped = path.to_string_lossy().replace('\\', "\\\\");
+            format!("[invites]\ndatabase_path = \"{escaped}\"\ndefault_ttl_hours = 24\n")
+        });
     let source = format!(
         r#"
 [server]
@@ -207,6 +214,7 @@ shutdown_grace_seconds = 15
 [auth]
 allowed_stable_ids = ["allowed-user"]
 allowed_stable_id_hashes = []
+{invites}
 [cookie]
 name = "__Host-sjtu_canvas_video_session"
 secure = true

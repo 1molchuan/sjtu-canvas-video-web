@@ -1,5 +1,5 @@
 import { QRCodeSVG } from "qrcode.react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 
 import { AppShell } from "../components/app_shell";
@@ -11,8 +11,10 @@ export function LoginPage({ dependencies }: { dependencies?: QrLoginDependencies
   const auth = useAuth();
   const navigate = useNavigate();
   const deps = useMemo(() => dependencies ?? browserDependencies(auth), [auth, dependencies]);
+  const [inviteToken] = useState(consumeInviteFragment);
   const login = useQrLogin({
     deps,
+    inviteToken,
     onAuthenticated: () => {
       void navigate("/courses", { replace: true });
     },
@@ -38,13 +40,19 @@ export function LoginPage({ dependencies }: { dependencies?: QrLoginDependencies
             <li>不保存账号密码或上游 Cookie</li>
           </ul>
         </div>
-        <LoginCard login={login} />
+        <LoginCard login={login} invited={inviteToken !== undefined} />
       </section>
     </AppShell>
   );
 }
 
-function LoginCard({ login }: { login: ReturnType<typeof useQrLogin> }) {
+function LoginCard({
+  login,
+  invited,
+}: {
+  login: ReturnType<typeof useQrLogin>;
+  invited: boolean;
+}) {
   const state = login.state;
   return (
     <section className="login-card" aria-labelledby="login-card-title">
@@ -68,12 +76,25 @@ function LoginCard({ login }: { login: ReturnType<typeof useQrLogin> }) {
       )}
       <div className="login-actions">
         <button className="button button--primary" type="button" disabled={login.active} onClick={() => void login.start()}>
-          {state.type === "expired" ? "重新生成二维码" : "开始扫码登录"}
+          {loginButtonLabel(state.type, invited)}
         </button>
         {login.active && <button className="button button--quiet" type="button" onClick={login.cancel}>取消本次登录</button>}
       </div>
     </section>
   );
+}
+
+function loginButtonLabel(type: ReturnType<typeof useQrLogin>["state"]["type"], invited: boolean) {
+  if (type === "expired") return "重新生成二维码";
+  return invited ? "使用邀请并扫码登录" : "开始扫码登录";
+}
+
+function consumeInviteFragment(): string | undefined {
+  const prefix = "#invite=";
+  if (!window.location.hash.startsWith(prefix)) return undefined;
+  const token = window.location.hash.slice(prefix.length);
+  window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+  return /^[A-Za-z0-9_-]{43}$/.test(token) ? token : undefined;
 }
 
 function loginStatus(type: ReturnType<typeof useQrLogin>["state"]["type"]): string {

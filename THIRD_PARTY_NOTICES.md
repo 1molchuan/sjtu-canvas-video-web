@@ -46,3 +46,8 @@ packages and distributions as required.
 - Playwright — Apache-2.0
 
 No school, Canvas, or upstream video-platform logo or proprietary frontend asset is bundled.
+
+## Invitation persistence
+
+The optional one-time invitation store uses `rusqlite` (MIT) with the bundled SQLite library. SQLite is
+dedicated to the public domain by its authors. Exact Rust dependency versions are fixed by `Cargo.lock`.

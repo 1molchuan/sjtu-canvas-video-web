@@ -45,6 +45,18 @@ Requires an exact configured `Origin`; cross-site `Sec-Fetch-Site` is rejected. 
 is rate-limited and proxy headers are ignored by default. A successful response creates a temporary,
 `HttpOnly` pending cookie and returns:
 
+The request body is optional. Ordinary allowlisted login uses an empty body. A browser opened through a
+one-time invitation submits:
+
+```json
+{"invite_token":"43-character-base64url-token"}
+```
+
+The invitation is reserved for this pending login and consumed only after a stable identity is verified.
+Invalid invitations return `403`; expired, consumed, or currently reserved invitations return `410`.
+The invitation URL uses `/login#invite=...`, so the raw token is never part of the HTTP request target or
+reverse-proxy access path. The frontend removes the fragment before starting login.
+
 ```json
 {
   "pending_id": "opaque-random-value",

@@ -6,6 +6,10 @@ const VALID_HASH: &str = "sha256:11111111111111111111111111111111111111111111111
 const FRONTEND_DIST: &str = "C:/srv/canvas-video/frontend/dist";
 #[cfg(not(windows))]
 const FRONTEND_DIST: &str = "/srv/canvas-video/frontend/dist";
+#[cfg(windows)]
+const INVITE_DB: &str = "C:/srv/canvas-video/private/invites.sqlite3";
+#[cfg(not(windows))]
+const INVITE_DB: &str = "/srv/canvas-video/private/invites.sqlite3";
 
 fn production_config(overrides: &[(&str, &str)]) -> AppConfig {
     let mut text = format!(
@@ -28,6 +32,10 @@ shutdown_grace_seconds = 15
 
 [auth]
 allowed_stable_id_hashes = ["{VALID_HASH}"]
+
+[invites]
+database_path = "{INVITE_DB}"
+default_ttl_hours = 24
 
 [cookie]
 name = "__Host-sjtu_canvas_video_session"
@@ -98,6 +106,24 @@ fn production_rejects_example_allowlist_values() {
     assert!(matches!(
         config.validate(),
         Err(ConfigError::ProductionPlaceholderAllowlist)
+    ));
+}
+
+#[test]
+fn production_requires_absolute_invite_database_path() {
+    let config = production_config(&[(INVITE_DB, "private/invites.sqlite3")]);
+    assert!(matches!(
+        config.validate(),
+        Err(ConfigError::ProductionInvitePathAbsolute)
+    ));
+}
+
+#[test]
+fn production_rejects_zero_invite_ttl() {
+    let config = production_config(&[("default_ttl_hours = 24", "default_ttl_hours = 0")]);
+    assert!(matches!(
+        config.validate(),
+        Err(ConfigError::InvalidDurations)
     ));
 }
 

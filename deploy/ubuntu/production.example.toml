@@ -22,6 +22,10 @@ allowed_stable_ids = []
 # Replace before startup. Generate with: cargo run -p server --bin hash-stable-id
 allowed_stable_id_hashes = ["sha256:REPLACE_ME"]
 
+[invites]
+database_path = "/var/lib/canvas-video/invites.sqlite3"
+default_ttl_hours = 24
+
 [cookie]
 name = "__Host-sjtu_canvas_video_session"
 secure = true

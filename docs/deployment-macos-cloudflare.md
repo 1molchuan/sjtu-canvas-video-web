@@ -25,6 +25,16 @@ Cloudflare 的[本地 Tunnel 配置文档](https://developers.cloudflare.com/tun
 
 ## 2. 安装用户级服务
 
+生产配置可启用私有邀请数据库：
+
+```toml
+[invites]
+database_path = "/Users/YOUR_USER/Services/sjtu-canvas-video/config/invites.sqlite3"
+default_ttl_hours = 24
+```
+
+该路径不得位于 release 或 Git 工作区。部署完成后用 release 内的 `bin/canvas-video-invite-admin --config ... create` 生成一次性链接；完整命令和数据边界见 [invitations.md](invitations.md)。
+
 推荐私人 MVP 使用 LaunchAgent：
 
 ```bash

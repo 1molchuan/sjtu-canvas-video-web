@@ -55,6 +55,7 @@ function New-ReleasePackage {
     New-Item -ItemType Directory -Force -Path (Join-Path $Staging "frontend") | Out-Null
     New-Item -ItemType Directory -Force -Path (Join-Path $Staging "config") | Out-Null
     Copy-Item (Join-Path $Root "target/release/server.exe") (Join-Path $Staging "bin/sjtu-canvas-video-server.exe")
+    Copy-Item (Join-Path $Root "target/release/invite-admin.exe") (Join-Path $Staging "bin/canvas-video-invite-admin.exe")
     Copy-Item (Join-Path $Root "frontend/dist") (Join-Path $Staging "frontend/dist") -Recurse
     Copy-Item (Join-Path $Root "config/production.example.toml") (Join-Path $Staging "config/example.toml")
     Copy-Item (Join-Path $Root "deploy") (Join-Path $Staging "deploy") -Recurse

@@ -35,6 +35,25 @@ function loginDependencies(source: FakeSource): QrLoginDependencies {
 }
 
 describe("LoginPage", () => {
+  it("consumes an invitation fragment without persisting or displaying the token", async () => {
+    const token = "a".repeat(43);
+    window.history.replaceState({}, "", `/login#invite=${token}`);
+    const user = userEvent.setup();
+    const source = new FakeSource();
+    const dependencies = loginDependencies(source);
+
+    renderWithProviders(<LoginPage dependencies={dependencies} />, {
+      authApi: fakeAuthApi({ authenticated: false }),
+      route: "/login",
+    });
+
+    expect(window.location.hash).toBe("");
+    expect(screen.queryByText(token)).not.toBeInTheDocument();
+    expect(localStorage.length).toBe(0);
+    await user.click(await screen.findByRole("button", { name: "使用邀请并扫码登录" }));
+    expect(dependencies.startLogin).toHaveBeenCalledWith(token);
+  });
+
   it("renders the QR locally and maps scan progress without showing its URL", async () => {
     const user = userEvent.setup();
     const source = new FakeSource();

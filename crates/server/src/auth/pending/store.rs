@@ -6,7 +6,7 @@ use std::sync::{
 use dashmap::DashMap;
 use time::OffsetDateTime;
 
-use crate::auth::login::AuthenticatedLogin;
+use crate::{auth::login::AuthenticatedLogin, invite::InviteReservation};
 
 use super::model::{
     BrowserBinding, PendingLogin, PendingLoginId, PendingStoreError, binding_matches,
@@ -32,8 +32,17 @@ impl PendingLoginStore {
         now: OffsetDateTime,
         ttl: time::Duration,
     ) -> Result<Arc<PendingLogin>, PendingStoreError> {
+        self.create_with_invite(now, ttl, None)
+    }
+
+    pub fn create_with_invite(
+        &self,
+        now: OffsetDateTime,
+        ttl: time::Duration,
+        invite: Option<InviteReservation>,
+    ) -> Result<Arc<PendingLogin>, PendingStoreError> {
         self.reserve_capacity()?;
-        let pending = match PendingLogin::new(now, now + ttl) {
+        let pending = match PendingLogin::new(now, now + ttl, invite) {
             Ok(pending) => Arc::new(pending),
             Err(error) => {
                 self.release_capacity();

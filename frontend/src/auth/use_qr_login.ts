@@ -16,13 +16,14 @@ export type LoginEventStream = {
 };
 
 export type QrLoginDependencies = {
-  startLogin: () => Promise<QrStartResponse>;
+  startLogin: (inviteToken?: string) => Promise<QrStartResponse>;
   claimSession: () => Promise<SessionResponse>;
   openEvents: (url: string) => LoginEventStream;
 };
 
 type UseQrLoginOptions = {
   deps: QrLoginDependencies;
+  inviteToken?: string;
   onAuthenticated: (session: Extract<SessionResponse, { authenticated: true }>) => void;
 };
 
@@ -98,11 +99,11 @@ export function useQrLogin(options: UseQrLoginOptions) {
     generationRef.current = generation;
     dispatch({ type: "start", generation });
     try {
-      connect(await options.deps.startLogin(), generation);
+      connect(await options.deps.startLogin(options.inviteToken), generation);
     } catch (error) {
       fail(generation, error);
     }
-  }, [connect, fail, options.deps]);
+  }, [connect, fail, options.deps, options.inviteToken]);
 
   const cancel = useCallback(() => {
     activeRef.current = false;

@@ -21,6 +21,7 @@ qrcode = { version = "0.14", default-features = false }
 regex = "1"
 reqwest = { version = "0.13", default-features = false, features = ["charset", "cookies", "form", "json", "query", "rustls", "stream"] }
 reqwest_cookie_store = "0.10"
+rusqlite = { version = "0.40.1", features = ["bundled"] }
 scraper = "0.27"
 secrecy = "0.10"
 serde = { version = "1", features = ["derive"] }
